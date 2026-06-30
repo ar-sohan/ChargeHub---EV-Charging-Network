@@ -11,7 +11,10 @@ import { TechnicianService } from './technician.service';
 import { CreateChargingMaintenanceDto } from './dto/create-charging-maintenance.dto';
 import { CreateHardwareMaintenanceDto } from './dto/create-hardware-maintenance.dto';
 import { CreateSafetyCheckDto } from './dto/create-safety-check.dto';
-import { CreateFaultReportDto, UpdateFaultStatusDto } from './dto/create-fault-report.dto';
+import {
+  CreateFaultReportDto,
+  UpdateFaultStatusDto,
+} from './dto/create-fault-report.dto';
 
 @Controller('technician')
 export class TechnicianController {
