@@ -7,6 +7,6 @@ export class AdminController {
 
   @Get()
   getHello(): string {
-    return "Hello";
+    return 'Hello';
   }
 }
