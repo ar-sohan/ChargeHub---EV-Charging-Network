@@ -1,5 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { LoginDto } from './dto/login.dto';
+import { technicianDto } from './dto/technitianVerify.dto';
 
 @Injectable()
 export class AdminService {
@@ -14,6 +15,7 @@ export class AdminService {
     if (loginDto.username === 'admin' && loginDto.password === 'admin') {
       return 'Login successful';
     }
+    throw new UnauthorizedException('Invalid credentials');
   }
   getDashboard(): string {
     return 'Welcome to the admin dashboard';
@@ -31,5 +33,17 @@ export class AdminService {
     }
     const restUsers = this.users.filter((user) => user.id !== id);
     return restUsers;
+  }
+  getTechnician(td: technicianDto) {
+    return { message: 'Technician verified', data: td };
+  }
+  getParking(): object {
+    return { house: 21, area: 'dhaka', zone: 222122 };
+  }
+  getPayments(): any {
+    return { payment_id: 1, amount: 200, time: null };
+  }
+  viewAdminSettings(): any {
+    return 'This is the admin setting section';
   }
 }
