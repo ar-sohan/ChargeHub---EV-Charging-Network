@@ -1,4 +1,4 @@
-import { IsAlpha, IsEmail, IsNotEmpty, Matches } from 'class-validator';
+import { IsAlpha, IsEmail, IsNotEmpty, Length } from 'class-validator';
 
 export class technicianDto {
   @IsAlpha()
@@ -9,7 +9,7 @@ export class technicianDto {
   @IsEmail({}, { message: 'Email must contain @ and a domain' })
   email: string | undefined;
 
-  @Matches(/^\d{10}$/, { message: 'NID must be a 10-digit number' })
   @IsNotEmpty()
-  nidNumber: number | undefined;
+  @Length(10)
+  nidNumber: string | undefined;
 }

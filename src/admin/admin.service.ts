@@ -23,7 +23,7 @@ export class AdminService {
   getAllUsers(): object {
     return this.users;
   }
-  getOneUser(id: string) {
+  getOneUser(id: string): any {
     return this.users.find((user) => user.id === id);
   }
   removeUser(id: string): any {

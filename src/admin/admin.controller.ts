@@ -19,6 +19,10 @@ export class AdminController {
   getAllUsers(): object {
     return this.adminService.getAllUsers();
   }
+  @Get('user/:id')
+  getOneUser(@Param('id') id: string): any {
+    return this.adminService.getOneUser(id);
+  }
   @Delete('users/ban/:id')
   removeUser(@Param('id') id: string): any {
     return this.adminService.removeUser(id);
