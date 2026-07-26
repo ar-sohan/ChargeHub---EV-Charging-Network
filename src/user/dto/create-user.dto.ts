@@ -1,28 +1,33 @@
-import { Matches, IsIn, IsNotEmpty } from 'class-validator';
+import {
+  IsEmail,
+  IsInt,
+  IsNotEmpty,
+  IsString,
+  Length,
+  Min,
+  Max,
+  IsIn,
+} from 'class-validator';
 
 export class CreateUserDto {
+  @IsString()
   @IsNotEmpty()
-  name!: string;
+  @Length(3, 100)
+  fullName: string;
 
-  @IsNotEmpty()
-  @Matches(/^[A-Za-z0-9._%+-]+@aiub\.edu$/, {
-    message: 'Email must be AIUB email',
-  })
-  email!: string;
+  @IsEmail()
+  email: string;
 
-  @IsNotEmpty()
-  @Matches(/^(?=.*[A-Z]).{6,}$/, {
-    message: 'Password must contain one uppercase letter',
-  })
-  password!: string;
+  @IsString()
+  @Length(6, 20)
+  password: string;
 
-  @IsNotEmpty()
+  @IsInt()
+  @Min(18)
+  @Max(100)
+  age: number;
+
+  @IsString()
   @IsIn(['male', 'female'])
-  gender!: string;
-
-  @IsNotEmpty()
-  @Matches(/^[0-9]+$/, {
-    message: 'Phone must contain only numbers',
-  })
-  phone!: string;
+  gender: string;
 }

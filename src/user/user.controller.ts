@@ -1,4 +1,15 @@
-import { Body, Controller, Get, Param, Post, Put, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+  Put,
+  Query,
+} from '@nestjs/common';
 
 import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -8,40 +19,66 @@ import { UpdateUserDto } from './dto/update-user.dto';
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
-  // ✅ Register user (ValidationPipe handles DTO validation automatically)
+  // Route 1: Register User
   @Post('register')
   register(@Body() createUserDto: CreateUserDto) {
     return this.userService.register(createUserDto);
   }
 
-  // ✅ Login user
+  // Route 2: Login User
   @Post('login')
-  login(@Body() body: any) {
-    // Changed LoginDto to 'any' for now since you skipped it
+  login(@Body() body: { email: string; password: string }) {
     return this.userService.login(body);
   }
 
-  // ✅ Search user by query
+  // Route 3: Search User
   @Get('search')
   search(@Query('name') name: string) {
     return this.userService.search(name);
   }
 
-  // ✅ Get all users
+  // Route 4: Get All Users
   @Get()
   getAllUsers() {
     return this.userService.getAllUsers();
   }
 
-  // ✅ Get user by ID
+  // Route 5: Get User By ID
   @Get(':id')
-  getUser(@Param('id') id: string) {
+  getUser(@Param('id', ParseIntPipe) id: number) {
     return this.userService.getUser(id);
   }
 
-  // ✅ Update full user
+  // Route 6: Update User
   @Put(':id')
-  update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() updateUserDto: UpdateUserDto,
+  ) {
     return this.userService.update(id, updateUserDto);
+  }
+
+  // Route 7: Update Status
+  @Patch(':id/status')
+  updateStatus(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: { status: string },
+  ) {
+    return this.userService.updateStatus(id, body);
+  }
+
+  // Route 8: Update Password
+  @Patch(':id/password')
+  updatePassword(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: { password: string },
+  ) {
+    return this.userService.updatePassword(id, body);
+  }
+
+  // Route 9: Delete User
+  @Delete(':id')
+  remove(@Param('id', ParseIntPipe) id: number) {
+    return this.userService.remove(id);
   }
 }

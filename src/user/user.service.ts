@@ -1,132 +1,201 @@
-import { Injectable } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  UnauthorizedException,
+} from '@nestjs/common';
+
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, ILike } from 'typeorm';
+import * as bcrypt from 'bcrypt';
+
+import { UserEntity } from './user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 
-export interface User extends CreateUserDto {
-  id: string;
-  status: string;
-}
-
-export interface LoginDto {
-  email: string;
-  password: string;
-}
-
-export interface StatusDto {
-  status: string;
-}
-
-export interface PasswordDto {
-  password: string;
-}
-
 @Injectable()
 export class UserService {
-  private users: User[] = [];
+  constructor(
+    @InjectRepository(UserEntity)
+    private readonly userRepository: Repository<UserEntity>,
+  ) {}
 
-  // Logic for Route 1: Register
-  register(dto: CreateUserDto) {
-    const newUser = {
-      id: Date.now().toString(),
-      ...dto,
+  // Remove password from response
+  private removePassword(user: UserEntity) {
+    const result = { ...user };
+
+    delete result.password;
+
+    return result;
+  }
+
+  // Register User
+  async register(createUserDto: CreateUserDto) {
+    const existingUser = await this.userRepository.findOne({
+      where: {
+        email: createUserDto.email,
+      },
+    });
+
+    if (existingUser) {
+      throw new ConflictException('Email already exists');
+    }
+
+    const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
+
+    const user = this.userRepository.create({
+      ...createUserDto,
+      password: hashedPassword,
       status: 'active',
-    };
+    });
 
-    this.users.push(newUser);
+    await this.userRepository.save(user);
+
     return {
       message: 'User registered successfully',
-      user: newUser,
+      user: this.removePassword(user),
     };
   }
 
-  // Logic for Route 2: Login
-  login(body: LoginDto) {
-    const user = this.users.find(
-      (u) => u.email === body.email && u.password === body.password,
-    );
+  // Login User
+  async login(body: { email: string; password: string }) {
+    const user = await this.userRepository.findOne({
+      where: {
+        email: body.email,
+      },
+    });
 
     if (!user) {
-      return { message: 'Invalid credentials' };
+      throw new NotFoundException('User not found');
+    }
+
+    const isPasswordMatched = await bcrypt.compare(
+      body.password,
+      user.password,
+    );
+
+    if (!isPasswordMatched) {
+      throw new UnauthorizedException('Invalid password');
     }
 
     return {
       message: 'Login successful',
-      user,
+      user: this.removePassword(user),
     };
   }
 
-  // Logic for Route 3: Search via name
-  search(name: string) {
-    if (!name) return this.users;
-    return this.users.filter((u) =>
-      u.name.toLowerCase().includes(name.toLowerCase()),
-    );
+  // Search User
+  async search(name: string) {
+    if (!name) {
+      return this.userRepository.find();
+    }
+
+    return this.userRepository.find({
+      where: {
+        fullName: ILike(`%${name}%`),
+      },
+    });
   }
 
-  // Logic for Route 4: Get All
-  getAllUsers() {
-    return this.users;
+  // Get All Users
+  async getAllUsers() {
+    const users = await this.userRepository.find();
+
+    return users.map((user) => this.removePassword(user));
   }
 
-  // Logic for Route 5: Get One By ID
-  getUser(id: string) {
-    const user = this.users.find((u) => u.id === id);
-    if (!user) return { message: 'User not found' };
-    return user;
+  // Get User By ID
+  async getUser(id: number) {
+    const user = await this.userRepository.findOne({
+      where: {
+        id,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    return this.removePassword(user);
   }
 
-  // Logic for Route 6: PUT Full Update
-  update(id: string, dto: UpdateUserDto) {
-    const user = this.users.find((u) => u.id === id);
+  // Update User
+  async update(id: number, dto: UpdateUserDto) {
+    await this.findUser(id);
 
-    if (!user) return { message: 'User not found' };
+    await this.userRepository.update(id, dto);
 
-    Object.assign(user, dto);
-
-    return {
-      message: 'User updated successfully',
-      user,
-    };
+    return this.getUser(id);
   }
 
-  // Logic for Route 7: PATCH Update Status
-  updateStatus(id: string, body: StatusDto) {
-    const user = this.users.find((u) => u.id === id);
+  // Update Status
+  async updateStatus(
+    id: number,
+    body: {
+      status: string;
+    },
+  ) {
+    await this.findUser(id);
 
-    if (!user) return { message: 'User not found' };
+    await this.userRepository.update(id, {
+      status: body.status,
+    });
 
-    user.status = body.status;
-
-    return {
-      message: 'Status updated',
-      user,
-    };
+    return this.getUser(id);
   }
 
-  // Logic for Route 8: PATCH Update Password
-  updatePassword(id: string, body: PasswordDto) {
-    const user = this.users.find((u) => u.id === id);
+  // Update Password
+  async updatePassword(
+    id: number,
+    body: {
+      password: string;
+    },
+  ) {
+    await this.findUser(id);
 
-    if (!user) return { message: 'User not found' };
+    const hashedPassword = await bcrypt.hash(body.password, 10);
 
-    user.password = body.password;
+    await this.userRepository.update(id, {
+      password: hashedPassword,
+    });
 
     return {
       message: 'Password updated successfully',
     };
   }
 
-  // Logic for Route 9: DELETE
-  remove(id: string) {
-    const index = this.users.findIndex((u) => u.id === id);
+  // Delete User
+  async remove(id: number) {
+    const user = await this.userRepository.findOne({
+      where: {
+        id,
+      },
+    });
 
-    if (index === -1) return { message: 'User not found' };
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
 
-    const deleted = this.users.splice(index, 1);
+    await this.userRepository.delete(id);
 
     return {
       message: 'User deleted successfully',
-      user: deleted[0],
+      user: this.removePassword(user),
     };
+  }
+
+  // Internal user check
+  private async findUser(id: number) {
+    const user = await this.userRepository.findOne({
+      where: {
+        id,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    return user;
   }
 }
