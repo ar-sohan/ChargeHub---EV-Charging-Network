@@ -2,13 +2,13 @@ import { IsString, IsEmail, IsIn } from 'class-validator';
 
 export class CreateManagedUserDto {
   @IsString()
-  name: string | undefined;
+  name: string;
 
   @IsEmail()
-  email: string | undefined;
+  email: string;
 
   @IsIn(['host', 'driver', 'technician'], {
     message: 'role must be host, driver, or technician',
   })
-  role: string | undefined;
+  role: string;
 }

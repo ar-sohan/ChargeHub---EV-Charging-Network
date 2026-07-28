@@ -31,7 +31,8 @@ export class AdminService {
   async create(dto: CreateAdminDto) {
     const exists = await this.adminRepo.findOneBy({ email: dto.email });
     if (exists) throw new ConflictException('Email already registered'); // 409
-    const password = await bcrypt.hash(dto.password, await bcrypt.genSalt());
+    const salt = await bcrypt.genSalt();
+    const password = await bcrypt.hash(dto.password, salt);
     const saved = await this.adminRepo.save(this.adminRepo.create({ ...dto, password }));
     delete (saved as any).password;
     try {
@@ -96,7 +97,7 @@ export class AdminService {
   getUsers(adminId: number, role?: string) {
     const where: any = { admin: { id: adminId } };
     if (role) where.role = role;
-    return this.userRepo.find({ where, relations: ['admin'] });
+    return this.userRepo.find({ where, relations: { admin: true } });
   }
 
   async getUser(userId: number) {
@@ -141,20 +142,20 @@ export class AdminService {
 
   async addResolution(disputeId: number, dto: CreateResolutionDto) {
     const dispute = await this.disputeRepo.findOne({
-      where: { id: disputeId }, relations: ['resolution'],
+      where: { id: disputeId }, relations: { resolution: true },
     });
     if (!dispute) throw new NotFoundException('Dispute not found');
     if (dispute.resolution) throw new ConflictException('Dispute already resolved');
     dispute.resolution = this.resolutionRepo.create({ ...dto });
     dispute.status = 'RESOLVED';
     await this.disputeRepo.save(dispute);
-    return this.disputeRepo.findOne({ where: { id: disputeId }, relations: ['resolution'] });
+    return this.disputeRepo.findOne({ where: { id: disputeId }, relations: { resolution: true } });
   }
 
   getAdminDisputes(adminId: number) {
     return this.disputeRepo.find({
       where: { admin: { id: adminId } },
-      relations: ['resolution', 'admin'],
+      relations: { resolution: true, admin: true },
     });
   }
 

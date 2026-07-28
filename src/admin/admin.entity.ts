@@ -14,26 +14,26 @@ export class AdminEntity {
   }
 
   @Column({ nullable: true })
-  fullName: string | undefined;
+  fullName: string;
 
   @Column({ unique: true })
-  email: string | undefined;
+  email: string;
 
   @Column()
-  password: string | undefined; // stored as a bcrypt hash
+  password: string; // stored as a bcrypt hash
 
   @Column()
-  gender: string | undefined;
+  gender: string;
 
   @Column({ type: 'bigint', nullable: true })
-  phone: string | undefined;
+  phone: string;
 
   @Column({ default: true })
-  isActive: boolean | undefined;
+  isActive: boolean;
 
   @OneToMany(() => Dispute, (dispute) => dispute.admin) // One-to-Many
   disputes: Dispute[];
 
   @OneToMany(() => ManagedUser, (user) => user.admin) // One-to-Many: users this admin manages
-  managedUsers: ManagedUser[] | undefined;
+  managedUsers: ManagedUser[];
 }

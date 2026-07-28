@@ -2,8 +2,8 @@ import { IsEmail, IsString } from 'class-validator';
 
 export class LoginAdminDto {
   @IsEmail()
-  email: string | undefined;
+  email: string;
 
   @IsString()
-  password: string | undefined;
+  password: string;
 }
