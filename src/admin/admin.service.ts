@@ -1,49 +1,167 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { LoginDto } from './dto/login.dto';
-import { technicianDto } from './dto/technitianVerify.dto';
+import {
+  Injectable, NotFoundException, ConflictException, UnauthorizedException,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, Like } from 'typeorm';
+import { JwtService } from '@nestjs/jwt';
+import { MailerService } from '@nestjs-modules/mailer';
+import * as bcrypt from 'bcrypt';
+import { AdminEntity } from './admin.entity';
+import { Dispute } from './dispute.entity';
+import { Resolution } from './resolution.entity';
+import { ManagedUser } from './managed-user.entity';
+import { CreateAdminDto } from './dto/create-admin.dto';
+import { LoginAdminDto } from './dto/login-admin.dto';
+import { CreateDisputeDto } from './dto/create-dispute.dto';
+import { CreateResolutionDto } from './dto/create-resolution.dto';
+import { CreateManagedUserDto } from './dto/create-managed-user.dto';
 
 @Injectable()
 export class AdminService {
-  private users = [
-    { id: '1', name: 'Sohan', age: 21, gender: 'male' },
-    { id: '2', name: 'Arif', age: 22, gender: 'male' },
-    { id: '3', name: 'Shahriar', age: 23, gender: 'male' },
-    { id: '4', name: 'Kabir', age: 24, gender: 'male' },
-    { id: '5', name: 'Rahim', age: 25, gender: 'male' },
-  ];
-  adminLogin(loginDto: LoginDto) {
-    if (loginDto.username === 'admin' && loginDto.password === 'admin') {
-      return 'Login successful';
+  constructor(
+    @InjectRepository(AdminEntity) private adminRepo: Repository<AdminEntity>,
+    @InjectRepository(Dispute) private disputeRepo: Repository<Dispute>,
+    @InjectRepository(Resolution) private resolutionRepo: Repository<Resolution>,
+    @InjectRepository(ManagedUser) private userRepo: Repository<ManagedUser>,
+    private jwt: JwtService,
+    private mailer: MailerService,
+  ) {}
+
+  // ---- Auth (BCrypt + JWT + HttpException) ----
+  async create(dto: CreateAdminDto) {
+    const exists = await this.adminRepo.findOneBy({ email: dto.email });
+    if (exists) throw new ConflictException('Email already registered'); // 409
+    const password = await bcrypt.hash(dto.password, await bcrypt.genSalt());
+    const saved = await this.adminRepo.save(this.adminRepo.create({ ...dto, password }));
+    delete (saved as any).password;
+    try {
+      await this.mailer.sendMail({
+        to: saved.email,
+        subject: 'Admin account created',
+        text: `Hi ${saved.fullName || 'Admin'}, your admin account is ready.`,
+      });
+    } catch (e) {
+      console.error('Email failed:', e.message);
     }
-    throw new UnauthorizedException('Invalid credentials');
+    return saved;
   }
-  getDashboard(): string {
-    return 'Welcome to the admin dashboard';
+
+  async login(dto: LoginAdminDto) {
+    const admin = await this.adminRepo.findOneBy({ email: dto.email });
+    if (!admin) throw new UnauthorizedException('Invalid credentials'); // 401
+    const ok = await bcrypt.compare(dto.password, admin.password);
+    if (!ok) throw new UnauthorizedException('Invalid credentials');
+    const token = await this.jwt.signAsync({ sub: admin.id, email: admin.email, role: 'admin' });
+    return { access_token: token };
   }
-  getAllUsers(): object {
-    return this.users;
+
+  // ---- Admin CRUD (TypeORM operations) ----
+  findAll(email?: string) {
+    const where: any = {};
+    if (email) where.email = Like(`%${email}%`);
+    return this.adminRepo.find({ where });
   }
-  getOneUser(id: string): any {
-    return this.users.find((user) => user.id === id);
+
+  async findOne(id: number) {
+    const admin = await this.adminRepo.findOneBy({ id });
+    if (!admin) throw new NotFoundException(`Admin ${id} not found`); // 404
+    return admin;
   }
-  removeUser(id: string): any {
-    const idx = this.users.find((user) => user.id === id);
-    if (!idx) {
-      return 'User not found';
+
+  async update(id: number, dto: CreateAdminDto) {
+    await this.findOne(id);
+    await this.adminRepo.update(id, dto);
+    return this.findOne(id);
+  }
+
+  async setActive(id: number, value: boolean) {
+    await this.findOne(id);
+    await this.adminRepo.update(id, { isActive: value });
+    return this.findOne(id);
+  }
+
+  async remove(id: number) {
+    await this.findOne(id);
+    await this.adminRepo.delete(id);
+    return { deleted: true, id };
+  }
+
+  // ---- USER MANAGEMENT: Admin -> ManagedUser (One-to-Many) ----
+  async addUser(adminId: number, dto: CreateManagedUserDto) {
+    const admin = await this.findOne(adminId);
+    const user = this.userRepo.create({ ...dto, admin });
+    return this.userRepo.save(user);
+  }
+
+  getUsers(adminId: number, role?: string) {
+    const where: any = { admin: { id: adminId } };
+    if (role) where.role = role;
+    return this.userRepo.find({ where, relations: ['admin'] });
+  }
+
+  async getUser(userId: number) {
+    const user = await this.userRepo.findOneBy({ id: userId });
+    if (!user) throw new NotFoundException(`User ${userId} not found`);
+    return user;
+  }
+
+  async approveUser(userId: number) {
+    const user = await this.getUser(userId);
+    await this.userRepo.update(userId, { isApproved: true });
+    try {
+      await this.mailer.sendMail({
+        to: user.email,
+        subject: 'Your account has been approved',
+        text: `Hi ${user.name}, your ${user.role} account has been approved by an admin.`,
+      });
+    } catch (e) {
+      console.error('Email failed:', e.message);
     }
-    const restUsers = this.users.filter((user) => user.id !== id);
-    return restUsers;
+    return this.getUser(userId);
   }
-  getTechnician(td: technicianDto) {
-    return { message: 'Technician verified', data: td };
+
+  async setUserStatus(userId: number, status: string) {
+    await this.getUser(userId);
+    await this.userRepo.update(userId, { status });
+    return this.getUser(userId);
   }
-  getParking(): object {
-    return { house: 21, area: 'dhaka', zone: 222122 };
+
+  async removeUser(userId: number) {
+    await this.getUser(userId);
+    await this.userRepo.delete(userId);
+    return { deleted: true, id: userId };
   }
-  getPayments(): any {
-    return { payment_id: 1, amount: 200, time: null };
+
+  // ---- Disputes: Admin -> Dispute (1:M) and Dispute -> Resolution (1:1) ----
+  async createDispute(adminId: number, dto: CreateDisputeDto) {
+    const admin = await this.findOne(adminId);
+    const dispute = this.disputeRepo.create({ subject: dto.subject, admin });
+    return this.disputeRepo.save(dispute);
   }
-  viewAdminSettings(): any {
-    return 'This is the admin setting section';
+
+  async addResolution(disputeId: number, dto: CreateResolutionDto) {
+    const dispute = await this.disputeRepo.findOne({
+      where: { id: disputeId }, relations: ['resolution'],
+    });
+    if (!dispute) throw new NotFoundException('Dispute not found');
+    if (dispute.resolution) throw new ConflictException('Dispute already resolved');
+    dispute.resolution = this.resolutionRepo.create({ ...dto });
+    dispute.status = 'RESOLVED';
+    await this.disputeRepo.save(dispute);
+    return this.disputeRepo.findOne({ where: { id: disputeId }, relations: ['resolution'] });
+  }
+
+  getAdminDisputes(adminId: number) {
+    return this.disputeRepo.find({
+      where: { admin: { id: adminId } },
+      relations: ['resolution', 'admin'],
+    });
+  }
+
+  async deleteDispute(disputeId: number) {
+    const dispute = await this.disputeRepo.findOneBy({ id: disputeId });
+    if (!dispute) throw new NotFoundException('Dispute not found');
+    await this.disputeRepo.delete(disputeId);
+    return { deleted: true, id: disputeId };
   }
 }
