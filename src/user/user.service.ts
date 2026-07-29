@@ -72,11 +72,11 @@ export class UserService {
 
   // Login User
   async login(body: { email: string; password: string }) {
-    const user = await this.userRepository.findOne({
-      where: {
-        email: body.email,
-      },
-    });
+    const user = await this.userRepository
+      .createQueryBuilder('user')
+      .addSelect('user.password')
+      .where('user.email = :email', { email: body.email })
+      .getOne();
 
     if (!user) {
       throw new NotFoundException('User not found');
@@ -102,7 +102,6 @@ export class UserService {
       user: this.removePassword(user),
     };
   }
-
   // Search User
   async search(name: string) {
     if (!name) {
