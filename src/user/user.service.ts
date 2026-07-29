@@ -4,7 +4,6 @@ import {
   ConflictException,
   UnauthorizedException,
 } from '@nestjs/common';
-
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, ILike } from 'typeorm';
 import * as bcrypt from 'bcrypt';
@@ -12,21 +11,35 @@ import * as bcrypt from 'bcrypt';
 import { UserEntity } from './user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { AuthService } from '../auth/auth.service';
 
 @Injectable()
 export class UserService {
   constructor(
     @InjectRepository(UserEntity)
     private readonly userRepository: Repository<UserEntity>,
+
+    private readonly authService: AuthService,
   ) {}
 
   // Remove password from response
   private removePassword(user: UserEntity) {
     const result = { ...user };
-
     delete result.password;
-
     return result;
+  }
+
+  // Internal user check
+  private async findUser(id: number) {
+    const user = await this.userRepository.findOne({
+      where: { id },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    return user;
   }
 
   // Register User
@@ -78,8 +91,14 @@ export class UserService {
       throw new UnauthorizedException('Invalid password');
     }
 
+    const token = this.authService.generateToken({
+      id: user.id,
+      email: user.email,
+    });
+
     return {
       message: 'Login successful',
+      access_token: token.access_token,
       user: this.removePassword(user),
     };
   }
@@ -87,35 +106,28 @@ export class UserService {
   // Search User
   async search(name: string) {
     if (!name) {
-      return this.userRepository.find();
+      const users = await this.userRepository.find();
+      return users.map((user) => this.removePassword(user));
     }
 
-    return this.userRepository.find({
+    const users = await this.userRepository.find({
       where: {
         fullName: ILike(`%${name}%`),
       },
     });
+
+    return users.map((user) => this.removePassword(user));
   }
 
   // Get All Users
   async getAllUsers() {
     const users = await this.userRepository.find();
-
     return users.map((user) => this.removePassword(user));
   }
 
   // Get User By ID
   async getUser(id: number) {
-    const user = await this.userRepository.findOne({
-      where: {
-        id,
-      },
-    });
-
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
+    const user = await this.findUser(id);
     return this.removePassword(user);
   }
 
@@ -166,15 +178,7 @@ export class UserService {
 
   // Delete User
   async remove(id: number) {
-    const user = await this.userRepository.findOne({
-      where: {
-        id,
-      },
-    });
-
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
+    const user = await this.findUser(id);
 
     await this.userRepository.delete(id);
 
@@ -182,20 +186,5 @@ export class UserService {
       message: 'User deleted successfully',
       user: this.removePassword(user),
     };
-  }
-
-  // Internal user check
-  private async findUser(id: number) {
-    const user = await this.userRepository.findOne({
-      where: {
-        id,
-      },
-    });
-
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    return user;
   }
 }

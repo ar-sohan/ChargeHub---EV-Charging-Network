@@ -5,9 +5,10 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // THIS IS THE CRITICAL LINE NEEDED TO ACTIVATE VALIDATION:
+  // Enable DTO validation
   app.useGlobalPipes(new ValidationPipe());
 
   await app.listen(3000);
 }
-bootstrap();
+
+void bootstrap();

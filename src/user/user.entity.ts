@@ -3,7 +3,10 @@ import {
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
+  OneToMany,
 } from 'typeorm';
+
+import { BookingEntity } from '../booking/booking.entity';
 
 @Entity('users')
 export class UserEntity {
@@ -23,7 +26,9 @@ export class UserEntity {
   })
   email: string;
 
-  @Column()
+  @Column({
+    select: false,
+  })
   password: string;
 
   @Column({
@@ -44,4 +49,8 @@ export class UserEntity {
 
   @CreateDateColumn()
   createdAt: Date;
+
+  // One User -> Many Bookings
+  @OneToMany(() => BookingEntity, (booking) => booking.user)
+  bookings: BookingEntity[];
 }
