@@ -15,7 +15,14 @@ import {
 import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { LoginUserDto } from './dto/login-user.dto';
+import { UpdateUserStatusDto } from './dto/update-user-status.dto';
+import { UpdatePasswordDto } from './dto/update-password.dto';
+import { CreateBookingDto } from './dto/create-booking.dto';
+import { UpdateBookingDto } from './dto/update-booking.dto';
+import { CreatePaymentDto } from './dto/create-payment.dto';
+import { UpdatePaymentDto } from './dto/update-payment.dto';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
 @Controller('user')
 export class UserController {
   constructor(private readonly userService: UserService) {}
@@ -28,8 +35,8 @@ export class UserController {
 
   // Route 2: Login User (Public)
   @Post('login')
-  login(@Body() body: { email: string; password: string }) {
-    return this.userService.login(body);
+  login(@Body() dto: LoginUserDto) {
+    return this.userService.login(dto);
   }
 
   // Route 3: Search User (Protected)
@@ -44,6 +51,74 @@ export class UserController {
   @Get()
   getAllUsers() {
     return this.userService.getAllUsers();
+  }
+
+  // User -> Booking (one-to-many) CRUD routes
+  @UseGuards(JwtAuthGuard)
+  @Post('bookings')
+  createBooking(@Body() dto: CreateBookingDto) {
+    return this.userService.createBooking(dto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('bookings')
+  findAllBookings() {
+    return this.userService.findAllBookings();
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('bookings/:id')
+  findOneBooking(@Param('id', ParseIntPipe) id: number) {
+    return this.userService.findOneBooking(id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('bookings/:id')
+  updateBooking(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateBookingDto,
+  ) {
+    return this.userService.updateBooking(id, dto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete('bookings/:id')
+  removeBooking(@Param('id', ParseIntPipe) id: number) {
+    return this.userService.removeBooking(id);
+  }
+
+  // Booking -> Payment (one-to-one) CRUD routes
+  @UseGuards(JwtAuthGuard)
+  @Post('payments')
+  createPayment(@Body() dto: CreatePaymentDto) {
+    return this.userService.createPayment(dto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('payments')
+  findAllPayments() {
+    return this.userService.findAllPayments();
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('payments/:id')
+  findOnePayment(@Param('id', ParseIntPipe) id: number) {
+    return this.userService.findOnePayment(id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('payments/:id')
+  updatePayment(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdatePaymentDto,
+  ) {
+    return this.userService.updatePayment(id, dto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete('payments/:id')
+  removePayment(@Param('id', ParseIntPipe) id: number) {
+    return this.userService.removePayment(id);
   }
 
   // Route 5: Get User By ID (Protected)
@@ -68,7 +143,7 @@ export class UserController {
   @Patch(':id/status')
   updateStatus(
     @Param('id', ParseIntPipe) id: number,
-    @Body() body: { status: string },
+    @Body() body: UpdateUserStatusDto,
   ) {
     return this.userService.updateStatus(id, body);
   }
@@ -78,7 +153,7 @@ export class UserController {
   @Patch(':id/password')
   updatePassword(
     @Param('id', ParseIntPipe) id: number,
-    @Body() body: { password: string },
+    @Body() body: UpdatePasswordDto,
   ) {
     return this.userService.updatePassword(id, body);
   }

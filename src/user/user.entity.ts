@@ -6,7 +6,7 @@ import {
   OneToMany,
 } from 'typeorm';
 
-import { BookingEntity } from '../booking/booking.entity';
+import { BookingEntity } from './booking.entity';
 
 @Entity('users')
 export class UserEntity {
@@ -14,43 +14,50 @@ export class UserEntity {
     type: 'int',
     unsigned: true,
   })
-  id: number;
+  id!: number;
 
   @Column({
     length: 100,
   })
-  fullName: string;
+  fullName!: string;
 
   @Column({
     unique: true,
   })
-  email: string;
+  email!: string;
+
+  @Column({
+    unique: true,
+    nullable: true,
+    length: 11,
+  })
+  phone!: string;
 
   @Column({
     select: false,
   })
-  password: string;
+  password!: string;
 
   @Column({
     type: 'int',
     unsigned: true,
   })
-  age: number;
+  age!: number;
 
   @Column({
     default: 'male',
   })
-  gender: string;
+  gender!: string;
 
   @Column({
     default: 'active',
   })
-  status: string;
+  status!: string;
 
   @CreateDateColumn()
-  createdAt: Date;
+  createdAt!: Date;
 
   // One User -> Many Bookings
   @OneToMany(() => BookingEntity, (booking) => booking.user)
-  bookings: BookingEntity[];
+  bookings!: BookingEntity[];
 }

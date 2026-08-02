@@ -1,53 +1,37 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-
-import { TypeOrmModule } from '@nestjs/typeorm';
+import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
 
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
 import { UserModule } from './user/user.module';
-
+import { AdminModule } from './admin/admin.module';
 import { TechnicianModule } from './technician/technician.module';
 
-import { AuthModule } from './auth/auth.module';
-
-import { BookingModule } from './booking/booking.module';
-import { PaymentModule } from './payment/payment.module';
+const databaseConfig: TypeOrmModuleOptions = {
+  type: 'postgres',
+  host: 'localhost',
+  port: 5432,
+  username: 'postgres',
+  password: 'rahat15496',
+  database: 'chargehubEV',
+  autoLoadEntities: true,
+  synchronize: true,
+};
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      envFilePath: '.env',
     }),
 
-    TypeOrmModule.forRoot({
-      type: 'postgres',
-
-      host: 'localhost',
-
-      port: 5432,
-
-      username: 'postgres',
-
-      password: 'rahat15496',
-
-      database: 'chargehubEV',
-
-      autoLoadEntities: true,
-
-      synchronize: true,
-    }),
+    TypeOrmModule.forRoot(databaseConfig),
 
     UserModule,
-
+    AdminModule,
     TechnicianModule,
-
-    AuthModule,
-
-    BookingModule,
-
-    PaymentModule,
   ],
 
   controllers: [AppController],

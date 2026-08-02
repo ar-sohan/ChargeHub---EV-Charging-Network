@@ -1,0 +1,23 @@
+import { Injectable } from '@nestjs/common';
+import { MailerService } from '@nestjs-modules/mailer';
+
+@Injectable()
+export class MailService {
+  constructor(private readonly mailerService: MailerService) {}
+
+  async sendWelcomeEmail(email: string, name: string) {
+    await this.mailerService.sendMail({
+      to: email,
+      subject: 'Welcome to ChargeHub EV',
+      text: `Hello ${name},
+
+Welcome to ChargeHub EV!
+
+Your account has been created successfully.
+
+Thank you.`,
+    });
+
+    return true;
+  }
+}
