@@ -1,29 +1,25 @@
-import { IsString, IsNotEmpty, Matches, IsDateString } from 'class-validator';
+import { IsDateString, IsNotEmpty, IsString, MaxLength } from 'class-validator';
 
 export class CreateSafetyCheckDto {
   @IsString()
   @IsNotEmpty()
-  @Matches(/^[A-Za-z\s]+$/, {
-    message: 'technicianName must not contain any numbers',
-  })
-  technicianName: string;
-
-  @IsString()
-  @IsNotEmpty()
+  @MaxLength(100)
   stationId: string;
 
   @IsString()
   @IsNotEmpty()
+  @MaxLength(100)
   checkType: string;
 
   @IsString()
   @IsNotEmpty()
+  @MaxLength(100)
   result: string;
 
   @IsString()
   @IsNotEmpty()
   remarks: string;
 
-  @IsDateString({}, { message: 'reportDate must be a valid date' })
+  @IsDateString()
   reportDate: string;
 }
