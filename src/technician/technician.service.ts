@@ -1,179 +1,164 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { CreateChargingMaintenanceDto } from './dto/create-charging-maintenance.dto';
-import { CreateHardwareMaintenanceDto } from './dto/create-hardware-maintenance.dto';
-import { CreateSafetyCheckDto } from './dto/create-safety-check.dto';
 import {
-  CreateFaultReportDto,
-  UpdateFaultStatusDto,
-} from './dto/create-fault-report.dto';
-
-// ─── In-Memory Storage ───────────────────────────────────────────────────────
-export interface ChargingMaintenanceRecord extends CreateChargingMaintenanceDto {
-  id: number;
-  status: string;
-  createdAt: string;
-}
-
-export interface HardwareMaintenanceRecord extends CreateHardwareMaintenanceDto {
-  id: number;
-  status: string;
-  createdAt: string;
-}
-
-export interface SystemMonitoringLog {
-  id: number;
-  checkedAt: string;
-  stationsChecked: number;
-}
-
-export interface SystemMonitoringData {
-  stationId: string;
-  powerStatus: string;
-  chargingLoad: string;
-  temperature: string;
-  networkStatus: string;
-  lastChecked: string;
-}
-
-export interface SafetyCheckRecord extends CreateSafetyCheckDto {
-  id: number;
-  checkedAt: string;
-}
-
-export interface FaultReportRecord extends CreateFaultReportDto {
-  id: number;
-  status: string;
-  reportedAt: string;
-  resolvedAt: string | null;
-  resolutionNote?: string;
-}
-
-const chargingMaintenanceRecords: ChargingMaintenanceRecord[] = [];
-const hardwareMaintenanceRecords: HardwareMaintenanceRecord[] = [];
-const systemMonitoringLogs: SystemMonitoringLog[] = [];
-const safetyCheckRecords: SafetyCheckRecord[] = [];
-const faultReports: FaultReportRecord[] = [];
-let idCounter = 1;
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Between, Repository } from 'typeorm';
+import { CreateFaultReportDto, UpdateFaultStatusDto } from './dto/create-fault-report.dto';
+import { CreateMaintenanceTaskDto, UpdateMaintenanceTaskDto } from './dto/create-maintenance-task.dto';
+import { CreateSafetyCheckDto } from './dto/create-safety-check.dto';
+import { CreateTechnicianDto } from './dto/create-technician.dto';
+import { UpdateCountryDto } from './dto/update-country.dto';
+import { FaultReport } from './fault-report.entity';
+import { MaintenanceTask } from './maintenance-task.entity';
+import { SafetyCheck } from './safety-check.entity';
+import { Specialisation } from './specialisation.entity';
+import { Technician } from './technician.entity';
 
 @Injectable()
 export class TechnicianService {
-  // ── 1. Log Charging System Maintenance ─────────────────────────────────────
-  logChargingMaintenance(dto: CreateChargingMaintenanceDto) {
-    const record = {
-      id: idCounter++,
-      ...dto,
-      status: 'In Progress',
-      createdAt: new Date().toISOString(),
-    };
-    chargingMaintenanceRecords.push(record);
-    return {
-      message: 'Charging maintenance logged successfully',
-      data: record,
-    };
-  }
+  constructor(
+    @InjectRepository(Technician)
+    private readonly technicianRepository: Repository<Technician>,
+    @InjectRepository(MaintenanceTask)
+    private readonly maintenanceRepository: Repository<MaintenanceTask>,
+    @InjectRepository(SafetyCheck)
+    private readonly safetyCheckRepository: Repository<SafetyCheck>,
+    @InjectRepository(FaultReport)
+    private readonly faultReportRepository: Repository<FaultReport>,
+    @InjectRepository(Specialisation)
+    private readonly specialisationRepository: Repository<Specialisation>,
+  ) {}
 
-  // ── 2. Get All Charging Maintenance Records ─────────────────────────────────
-  getAllChargingMaintenance(stationId?: string) {
-    if (stationId) {
-      const filtered = chargingMaintenanceRecords.filter(
-        (r) => r.stationId === stationId,
-      );
-      return { total: filtered.length, data: filtered };
+  async createProfile(dto: CreateTechnicianDto): Promise<Technician> {
+    const existing = await this.technicianRepository.findOne({
+      where: { email: dto.email },
+    });
+    if (existing) {
+      throw new ConflictException('A technician profile already uses this email');
     }
-    return {
-      total: chargingMaintenanceRecords.length,
-      data: chargingMaintenanceRecords,
-    };
-  }
 
-  // ── 3. Log Hardware Maintenance ─────────────────────────────────────────────
-  logHardwareMaintenance(dto: CreateHardwareMaintenanceDto) {
-    const record = {
-      id: idCounter++,
+    const names = [...new Set([dto.primarySpecialisation, ...(dto.specialisations ?? [])])];
+    const specialisations = await Promise.all(
+      names.map((name) => this.findOrCreateSpecialisation(name)),
+    );
+    const technician = this.technicianRepository.create({
       ...dto,
-      status: 'Scheduled',
-      createdAt: new Date().toISOString(),
-    };
-    hardwareMaintenanceRecords.push(record);
-    return {
-      message: 'Hardware maintenance logged successfully',
-      data: record,
-    };
+      country: dto.country ?? 'Unknown',
+      approvalStatus: 'Pending',
+      specialisations,
+    });
+    return this.technicianRepository.save(technician);
   }
 
-  // ── 4. Get System Monitoring Status ────────────────────────────────────────
-  getSystemMonitoring(stationId?: string) {
-    // Simulated live monitoring data
-    const stations = ['ST-001', 'ST-002', 'ST-003', 'ST-004'];
-    const targetStations = stationId ? [stationId] : stations;
-
-    const monitoringData = targetStations.map((id) => ({
-      stationId: id,
-      powerStatus: 'ON',
-      chargingLoad: `${Math.floor(Math.random() * 100)}%`,
-      temperature: `${(20 + Math.random() * 15).toFixed(1)}°C`,
-      networkStatus: 'Connected',
-      lastChecked: new Date().toISOString(),
-    }));
-
-    const log = {
-      id: idCounter++,
-      checkedAt: new Date().toISOString(),
-      stationsChecked: monitoringData.length,
-    };
-    systemMonitoringLogs.push(log);
-
-    return { message: 'System monitoring data fetched', data: monitoringData };
+  async getProfile(id: number): Promise<Technician> {
+    return this.findTechnician(id, {
+      specialisations: true,
+      maintenanceTasks: true,
+      safetyChecks: true,
+      faultReports: true,
+    });
   }
 
-  // ── 5. Create Safety Check ──────────────────────────────────────────────────
-  createSafetyCheck(dto: CreateSafetyCheckDto) {
-    const record = {
-      id: idCounter++,
-      ...dto,
-      checkedAt: new Date().toISOString(),
-    };
-    safetyCheckRecords.push(record);
-    return { message: 'Safety check recorded successfully', data: record };
+  async updateCountry(id: number, dto: UpdateCountryDto): Promise<Technician> {
+    const technician = await this.findTechnician(id);
+    technician.country = dto.country;
+    return this.technicianRepository.save(technician);
   }
 
-  // ── 6. Get Safety Check by ID ───────────────────────────────────────────────
-  getSafetyCheckById(id: number) {
-    const record = safetyCheckRecords.find((r) => r.id === id);
-    if (!record) {
-      throw new NotFoundException(`Safety check with ID ${id} not found`);
+  async findByJoiningDate(joiningDate: string): Promise<Technician[]> {
+    const start = new Date(`${joiningDate}T00:00:00.000Z`);
+    const end = new Date(`${joiningDate}T23:59:59.999Z`);
+    return this.technicianRepository.find({ where: { joiningDate: Between(start, end) } });
+  }
+
+  async findUnknownCountry(): Promise<Technician[]> {
+    return this.technicianRepository.find({ where: { country: 'Unknown' } });
+  }
+
+  async createMaintenanceTask(technicianId: number, dto: CreateMaintenanceTaskDto) {
+    const technician = await this.findApprovedTechnician(technicianId);
+    const task = this.maintenanceRepository.create({ ...dto, technician });
+    return this.maintenanceRepository.save(task);
+  }
+
+  async getMaintenanceTasks(technicianId: number): Promise<MaintenanceTask[]> {
+    await this.findTechnician(technicianId);
+    return this.maintenanceRepository.find({
+      where: { technician: { id: technicianId } },
+      relations: { technician: true },
+    });
+  }
+
+  async updateMaintenanceTask(id: number, dto: UpdateMaintenanceTaskDto) {
+    const task = await this.maintenanceRepository.findOne({ where: { id } });
+    if (!task) throw new NotFoundException(`Maintenance task with ID ${id} not found`);
+    Object.assign(task, dto);
+    return this.maintenanceRepository.save(task);
+  }
+
+  async removeMaintenanceTask(id: number) {
+    const result = await this.maintenanceRepository.delete(id);
+    if (!result.affected) throw new NotFoundException(`Maintenance task with ID ${id} not found`);
+    return { message: 'Maintenance task deleted successfully' };
+  }
+
+  async addSpecialisation(technicianId: number, name: string): Promise<Technician> {
+    const technician = await this.findTechnician(technicianId, { specialisations: true });
+    const specialisation = await this.findOrCreateSpecialisation(name);
+    if (!technician.specialisations.some((item) => item.id === specialisation.id)) {
+      technician.specialisations.push(specialisation);
     }
-    return { data: record };
+    return this.technicianRepository.save(technician);
   }
 
-  // ── 7. Report a Fault ───────────────────────────────────────────────────────
-  reportFault(dto: CreateFaultReportDto) {
-    const record = {
-      id: idCounter++,
-      ...dto,
-      status: 'Open',
-      reportedAt: new Date().toISOString(),
-      resolvedAt: null,
-    };
-    faultReports.push(record);
-    return { message: 'Fault reported successfully', data: record };
+  async createSafetyCheck(technicianId: number, dto: CreateSafetyCheckDto) {
+    const technician = await this.findApprovedTechnician(technicianId);
+    return this.safetyCheckRepository.save(this.safetyCheckRepository.create({ ...dto, technician }));
   }
 
-  // ── 8. Update Fault Status ──────────────────────────────────────────────────
-  updateFaultStatus(id: number, dto: UpdateFaultStatusDto) {
-    const index = faultReports.findIndex((r) => r.id === id);
-    if (index === -1) {
-      throw new NotFoundException(`Fault report with ID ${id} not found`);
-    }
-    faultReports[index] = {
-      ...faultReports[index],
-      status: dto.status,
-      resolutionNote: dto.resolutionNote,
-      resolvedAt: dto.status === 'Resolved' ? new Date().toISOString() : null,
-    };
-    return {
-      message: 'Fault status updated successfully',
-      data: faultReports[index],
-    };
+  async getSafetyCheckById(id: number): Promise<SafetyCheck> {
+    const check = await this.safetyCheckRepository.findOne({
+      where: { id },
+      relations: { technician: true },
+    });
+    if (!check) throw new NotFoundException(`Safety check with ID ${id} not found`);
+    return check;
+  }
+
+  async reportFault(technicianId: number, dto: CreateFaultReportDto) {
+    const technician = await this.findApprovedTechnician(technicianId);
+    return this.faultReportRepository.save(this.faultReportRepository.create({ ...dto, technician }));
+  }
+
+  async updateFaultStatus(id: number, dto: UpdateFaultStatusDto) {
+    const fault = await this.faultReportRepository.findOne({ where: { id } });
+    if (!fault) throw new NotFoundException(`Fault report with ID ${id} not found`);
+    fault.status = dto.status;
+    fault.resolutionNote = dto.resolutionNote;
+    fault.resolvedAt = dto.status === 'Resolved' ? new Date() : undefined;
+    return this.faultReportRepository.save(fault);
+  }
+
+  private async findTechnician(id: number, relations = {}): Promise<Technician> {
+    const technician = await this.technicianRepository.findOne({ where: { id }, relations });
+    if (!technician) throw new NotFoundException(`Technician profile with ID ${id} not found`);
+    return technician;
+  }
+
+  private async findApprovedTechnician(id: number): Promise<Technician> {
+    const technician = await this.findTechnician(id);
+   /* if (technician.approvalStatus !== 'Approved') {
+      throw new ForbiddenException('Technician profile must be approved before performing work');
+    }*/
+    return technician;
+  }
+
+  private async findOrCreateSpecialisation(name: string): Promise<Specialisation> {
+    const normalizedName = name.trim();
+    const existing = await this.specialisationRepository.findOne({ where: { name: normalizedName } });
+    return existing ?? this.specialisationRepository.save(this.specialisationRepository.create({ name: normalizedName }));
   }
 }

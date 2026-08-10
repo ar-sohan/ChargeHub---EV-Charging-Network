@@ -1,26 +1,14 @@
-import {
-  IsString,
-  IsNotEmpty,
-  Matches,
-  IsDateString,
-  IsUrl,
-  IsOptional,
-} from 'class-validator';
+import { IsDateString, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class CreateFaultReportDto {
   @IsString()
   @IsNotEmpty()
-  @Matches(/^[A-Za-z\s]+$/, {
-    message: 'technicianName must not contain any numbers',
-  })
-  technicianName: string;
-
-  @IsString()
-  @IsNotEmpty()
+  @MaxLength(100)
   stationId: string;
 
   @IsString()
   @IsNotEmpty()
+  @MaxLength(100)
   faultType: string;
 
   @IsString()
@@ -29,22 +17,20 @@ export class CreateFaultReportDto {
 
   @IsString()
   @IsNotEmpty()
+  @MaxLength(30)
   severity: string;
 
-  @IsDateString({}, { message: 'reportDate must be a valid date' })
+  @IsDateString()
   reportDate: string;
-
-  @IsOptional()
-  @IsUrl({}, { message: 'socialMediaLink must be a valid URL' })
-  socialMediaLink?: string;
 }
 
 export class UpdateFaultStatusDto {
   @IsString()
   @IsNotEmpty()
+  @MaxLength(30)
   status: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  resolutionNote: string;
+  resolutionNote?: string;
 }
