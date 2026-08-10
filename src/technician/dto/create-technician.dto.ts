@@ -23,6 +23,9 @@ export class CreateTechnicianDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(20)
+  @Matches(/^01\d{9}$/, {
+  message: 'Phone number must start with 01 and be exactly 11 digits.',
+  })
   phone: string;
 
   @IsString()

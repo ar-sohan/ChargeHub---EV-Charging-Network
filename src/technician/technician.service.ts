@@ -150,9 +150,9 @@ export class TechnicianService {
 
   private async findApprovedTechnician(id: number): Promise<Technician> {
     const technician = await this.findTechnician(id);
-    if (technician.approvalStatus !== 'Approved') {
+   /* if (technician.approvalStatus !== 'Approved') {
       throw new ForbiddenException('Technician profile must be approved before performing work');
-    }
+    }*/
     return technician;
   }
 
