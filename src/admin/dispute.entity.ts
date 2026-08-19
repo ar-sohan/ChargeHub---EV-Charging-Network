@@ -18,10 +18,11 @@ export class Dispute {
   @CreateDateColumn()
   createdAt: Date;
 
-  @ManyToOne(() => AdminEntity, (admin) => admin.disputes) // Many disputes -> one admin
+  @ManyToOne(() => AdminEntity, (admin) => admin.disputes)
   admin: AdminEntity;
 
   @OneToOne(() => Resolution, (resolution) => resolution.dispute, { cascade: true, nullable: true })
-  @JoinColumn() // One-to-One (owns the FK)
+
+  @JoinColumn()
   resolution: Resolution;
 }

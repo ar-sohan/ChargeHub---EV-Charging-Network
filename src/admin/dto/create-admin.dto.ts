@@ -1,6 +1,5 @@
 import { IsString, IsEmail, IsIn, MinLength, Matches } from 'class-validator';
 
-// Category 2 validation rules
 export class CreateAdminDto {
   @IsString()
   fullName: string;

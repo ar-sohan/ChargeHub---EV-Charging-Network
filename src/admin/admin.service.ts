@@ -1,5 +1,8 @@
 import {
-  Injectable, NotFoundException, ConflictException, UnauthorizedException,
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like } from 'typeorm';
@@ -21,7 +24,8 @@ export class AdminService {
   constructor(
     @InjectRepository(AdminEntity) private adminRepo: Repository<AdminEntity>,
     @InjectRepository(Dispute) private disputeRepo: Repository<Dispute>,
-    @InjectRepository(Resolution) private resolutionRepo: Repository<Resolution>,
+    @InjectRepository(Resolution)
+    private resolutionRepo: Repository<Resolution>,
     @InjectRepository(ManagedUser) private userRepo: Repository<ManagedUser>,
     private jwt: JwtService,
     private mailer: MailerService,
@@ -30,10 +34,12 @@ export class AdminService {
   // ---- Auth (BCrypt + JWT + HttpException) ----
   async create(dto: CreateAdminDto) {
     const exists = await this.adminRepo.findOneBy({ email: dto.email });
-    if (exists) throw new ConflictException('Email already registered'); // 409
+    if (exists) throw new ConflictException('Email already registered'); 
     const salt = await bcrypt.genSalt();
     const password = await bcrypt.hash(dto.password, salt);
-    const saved = await this.adminRepo.save(this.adminRepo.create({ ...dto, password }));
+    const saved = await this.adminRepo.save(
+      this.adminRepo.create({ ...dto, password }),
+    );
     delete (saved as any).password;
     try {
       await this.mailer.sendMail({
@@ -52,11 +58,14 @@ export class AdminService {
     if (!admin) throw new UnauthorizedException('Invalid credentials'); // 401
     const ok = await bcrypt.compare(dto.password, admin.password);
     if (!ok) throw new UnauthorizedException('Invalid credentials');
-    const token = await this.jwt.signAsync({ sub: admin.id, email: admin.email, role: 'admin' });
+    const token = await this.jwt.signAsync({
+      sub: admin.id,
+      email: admin.email,
+      role: 'admin',
+    });
     return { access_token: token };
   }
 
-  // ---- Admin CRUD (TypeORM operations) ----
   findAll(email?: string) {
     const where: any = {};
     if (email) where.email = Like(`%${email}%`);
@@ -133,7 +142,6 @@ export class AdminService {
     return { deleted: true, id: userId };
   }
 
-  // ---- Disputes: Admin -> Dispute (1:M) and Dispute -> Resolution (1:1) ----
   async createDispute(adminId: number, dto: CreateDisputeDto) {
     const admin = await this.findOne(adminId);
     const dispute = this.disputeRepo.create({ subject: dto.subject, admin });
@@ -142,14 +150,19 @@ export class AdminService {
 
   async addResolution(disputeId: number, dto: CreateResolutionDto) {
     const dispute = await this.disputeRepo.findOne({
-      where: { id: disputeId }, relations: { resolution: true },
+      where: { id: disputeId },
+      relations: { resolution: true },
     });
     if (!dispute) throw new NotFoundException('Dispute not found');
-    if (dispute.resolution) throw new ConflictException('Dispute already resolved');
+    if (dispute.resolution)
+      throw new ConflictException('Dispute already resolved');
     dispute.resolution = this.resolutionRepo.create({ ...dto });
     dispute.status = 'RESOLVED';
     await this.disputeRepo.save(dispute);
-    return this.disputeRepo.findOne({ where: { id: disputeId }, relations: { resolution: true } });
+    return this.disputeRepo.findOne({
+      where: { id: disputeId },
+      relations: { resolution: true },
+    });
   }
 
   getAdminDisputes(adminId: number) {

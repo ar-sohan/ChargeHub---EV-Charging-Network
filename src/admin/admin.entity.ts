@@ -1,4 +1,10 @@
-import { Entity, PrimaryColumn, Column, BeforeInsert, OneToMany } from 'typeorm';
+import {
+  Entity,
+  PrimaryColumn,
+  Column,
+  BeforeInsert,
+  OneToMany,
+} from 'typeorm';
 import { Dispute } from './dispute.entity';
 import { ManagedUser } from './managed-user.entity';
 
@@ -7,7 +13,6 @@ export class AdminEntity {
   @PrimaryColumn()
   id: number;
 
-  // Category 2: custom id generation before insert
   @BeforeInsert()
   generateId() {
     this.id = Math.floor(Math.random() * 1_000_000_000);
@@ -31,9 +36,9 @@ export class AdminEntity {
   @Column({ default: true })
   isActive: boolean;
 
-  @OneToMany(() => Dispute, (dispute) => dispute.admin) // One-to-Many
+  @OneToMany(() => Dispute, (dispute) => dispute.admin)
   disputes: Dispute[];
 
-  @OneToMany(() => ManagedUser, (user) => user.admin) // One-to-Many: users this admin manages
+  @OneToMany(() => ManagedUser, (user) => user.admin)
   managedUsers: ManagedUser[];
 }

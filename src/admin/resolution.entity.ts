@@ -12,6 +12,6 @@ export class Resolution {
   @Column({ nullable: true })
   note: string;
 
-  @OneToOne(() => Dispute, (dispute) => dispute.resolution) // inverse side
+  @OneToOne(() => Dispute, (dispute) => dispute.resolution)
   dispute: Dispute;
 }
