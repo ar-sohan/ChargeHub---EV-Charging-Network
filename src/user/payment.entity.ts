@@ -25,8 +25,17 @@ export class PaymentEntity {
   })
   status!: string;
 
+  @Column({ nullable: true })
+  transactionId?: string;
+
+  @Column({ nullable: true })
+  paymentMethod?: string;
+
   @CreateDateColumn()
   paymentDate!: Date;
+
+  @Column({ type: 'timestamp', nullable: true })
+  paidAt?: Date;
 
   @OneToOne(() => BookingEntity, (booking) => booking.payment, {
     onDelete: 'CASCADE',

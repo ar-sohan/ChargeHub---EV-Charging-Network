@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsInt, IsNumber, Min } from 'class-validator';
+import { IsInt, IsNumber, IsOptional, IsString, Min } from 'class-validator';
 
 export class CreatePaymentDto {
   @Type(() => Number)
@@ -11,4 +11,8 @@ export class CreatePaymentDto {
   @IsInt()
   @Min(1)
   bookingId!: number;
+
+  @IsOptional()
+  @IsString()
+  paymentMethod?: string;
 }

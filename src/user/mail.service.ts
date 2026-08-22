@@ -20,4 +20,28 @@ Thank you.`,
 
     return true;
   }
+
+  async sendBookingConfirmationEmail(
+    email: string,
+    name: string,
+    bookingId: number,
+    slotNumber: string,
+    amount: number,
+  ) {
+    await this.mailerService.sendMail({
+      to: email,
+      subject: `Booking #${bookingId} confirmed - ChargeHub EV`,
+      text: `Hello ${name},
+
+Your ChargeHub EV booking has been confirmed.
+
+Booking ID: #${bookingId}
+Slot: ${slotNumber}
+Payment received: ${amount}
+
+Thank you for choosing ChargeHub EV.`,
+    });
+
+    return true;
+  }
 }

@@ -19,7 +19,7 @@ export class BookingEntity {
   slotNumber!: string;
 
   @Column({
-    default: 'booked',
+    default: 'pending_payment',
   })
   status!: string;
 

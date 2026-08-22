@@ -12,4 +12,12 @@ export class UpdatePaymentDto {
   @IsString()
   @IsIn(['pending', 'paid', 'failed', 'refunded'])
   status?: string;
+
+  @IsOptional()
+  @IsString()
+  transactionId?: string;
+
+  @IsOptional()
+  @IsString()
+  paymentMethod?: string;
 }

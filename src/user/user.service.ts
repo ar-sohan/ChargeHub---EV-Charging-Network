@@ -3,10 +3,11 @@ import {
   NotFoundException,
   ConflictException,
   UnauthorizedException,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { JwtService } from '@nestjs/jwt';
-import { Repository, ILike } from 'typeorm';
+import { DataSource, Repository, ILike } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 
 import { UserEntity } from './user.entity';
@@ -29,6 +30,8 @@ import { MailService } from './mail.service';
 
 @Injectable()
 export class UserService {
+  private readonly logger = new Logger(UserService.name);
+
   constructor(
     @InjectRepository(UserEntity)
     private readonly userRepository: Repository<UserEntity>,
@@ -38,6 +41,8 @@ export class UserService {
 
     @InjectRepository(PaymentEntity)
     private readonly paymentRepository: Repository<PaymentEntity>,
+
+    private readonly dataSource: DataSource,
 
     private readonly jwtService: JwtService,
 
@@ -214,7 +219,8 @@ export class UserService {
     const user = await this.findUser(dto.userId);
     const booking = this.bookingRepository.create({
       slotNumber: dto.slotNumber,
-      status: dto.status,
+      // A booking can only become confirmed after a successful payment.
+      status: 'pending_payment',
       user,
     });
 
@@ -283,6 +289,7 @@ export class UserService {
 
     const payment = this.paymentRepository.create({
       amount: dto.amount,
+      paymentMethod: dto.paymentMethod,
       booking,
     });
 
@@ -315,9 +322,58 @@ export class UserService {
   }
 
   async updatePayment(id: number, dto: UpdatePaymentDto) {
-    await this.findOnePayment(id);
+    if (dto.status !== 'paid') {
+      await this.findOnePayment(id);
+      await this.paymentRepository.update(id, dto);
+      return this.findOnePayment(id);
+    }
 
-    await this.paymentRepository.update(id, dto);
+    const confirmedPayment = await this.dataSource.transaction(async (manager) => {
+      const payment = await manager.findOne(PaymentEntity, {
+        where: { id },
+        relations: { booking: { user: true } },
+      });
+
+      if (!payment) {
+        throw new NotFoundException('Payment not found');
+      }
+
+      if (payment.status === 'paid') {
+        throw new ConflictException('Payment has already been completed');
+      }
+
+      if (payment.booking.status === 'cancelled') {
+        throw new ConflictException('A cancelled booking cannot be paid');
+      }
+
+      payment.amount = dto.amount ?? payment.amount;
+      payment.transactionId = dto.transactionId ?? payment.transactionId;
+      payment.paymentMethod = dto.paymentMethod ?? payment.paymentMethod;
+      payment.status = 'paid';
+      payment.paidAt = new Date();
+      await manager.save(payment);
+
+      payment.booking.status = 'confirmed';
+      await manager.save(payment.booking);
+
+      return payment;
+    });
+
+    // Do not roll back a completed payment if SMTP is temporarily unavailable.
+    try {
+      await this.mailService.sendBookingConfirmationEmail(
+        confirmedPayment.booking.user.email,
+        confirmedPayment.booking.user.fullName,
+        confirmedPayment.booking.id,
+        confirmedPayment.booking.slotNumber,
+        Number(confirmedPayment.amount),
+      );
+    } catch (error) {
+      this.logger.error(
+        `Booking #${confirmedPayment.booking.id} was confirmed, but its email could not be sent`,
+        error instanceof Error ? error.stack : undefined,
+      );
+    }
 
     return this.findOnePayment(id);
   }

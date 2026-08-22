@@ -45,6 +45,11 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
             pass: configService.get('MAIL_PASS'),
           },
         },
+        defaults: {
+          from:
+            configService.get('MAIL_FROM') ||
+            `ChargeHub EV <${configService.get('MAIL_USER')}>`,
+        },
       }),
     }),
   ],

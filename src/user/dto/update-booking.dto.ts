@@ -7,6 +7,6 @@ export class UpdateBookingDto {
 
   @IsOptional()
   @IsString()
-  @IsIn(['booked', 'confirmed', 'cancelled', 'completed'])
+  @IsIn(['pending_payment', 'cancelled', 'completed'])
   status?: string;
 }
