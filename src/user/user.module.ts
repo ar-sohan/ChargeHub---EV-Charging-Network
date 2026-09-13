@@ -1,3 +1,8 @@
+import { StationService } from './station.service';
+import { StationEntity, ChargingSlotEntity, StationSeedRun } from './station.entity';
+import { ChargingService } from './charging.service';
+import { UserNotification } from './notification.entity';
+import { NotificationService } from './notification.service';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule } from '@nestjs/jwt';
@@ -18,7 +23,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
   imports: [
     ConfigModule,
 
-    TypeOrmModule.forFeature([UserEntity, BookingEntity, PaymentEntity]),
+    TypeOrmModule.forFeature([StationEntity, ChargingSlotEntity, StationSeedRun, UserEntity, BookingEntity, PaymentEntity, UserNotification]),
 
     JwtModule.register({
       secret: process.env.JWT_SECRET || 'chargehub_secret_key',
@@ -56,8 +61,11 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
   controllers: [UserController],
 
-  providers: [UserService, MailService, JwtAuthGuard],
+  providers: [StationService, ChargingService, NotificationService, UserService, MailService, JwtAuthGuard],
 
   exports: [MailService],
 })
 export class UserModule {}
+
+
+

@@ -1,12 +1,6 @@
-import { IsIn, IsOptional, IsString } from 'class-validator';
+import { Equals } from 'class-validator';
 
 export class UpdateBookingDto {
-  @IsOptional()
-  @IsString()
-  slotNumber?: string;
-
-  @IsOptional()
-  @IsString()
-  @IsIn(['pending_payment', 'cancelled', 'completed'])
-  status?: string;
+  @Equals('cancelled', { message: 'Only cancellation is allowed' })
+  status!: 'cancelled';
 }

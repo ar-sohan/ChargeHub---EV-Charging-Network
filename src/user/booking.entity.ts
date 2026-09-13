@@ -26,6 +26,15 @@ export class BookingEntity {
   @CreateDateColumn()
   bookingTime!: Date;
 
+  @Column({ type: 'timestamptz', nullable: true })
+  chargingStartedAt!: Date | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  chargingCompletedAt!: Date | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  chargingStoppedAt!: Date | null;
+
   // Many Bookings -> One User
   @ManyToOne(() => UserEntity, (user) => user.bookings, {
     onDelete: 'CASCADE',
@@ -36,3 +45,5 @@ export class BookingEntity {
   @OneToOne(() => PaymentEntity, (payment) => payment.booking)
   payment!: PaymentEntity;
 }
+
+

@@ -1,13 +1,15 @@
-import { Type } from 'class-transformer';
-import { IsInt, IsNotEmpty, IsString, Min } from 'class-validator';
+import { Transform } from 'class-transformer';
+import { IsString, Matches } from 'class-validator';
 
 export class CreateBookingDto {
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim().toUpperCase() : value)
   @IsString()
-  @IsNotEmpty()
+  @Matches(/^A-[1-9][0-9]*$/, {
+    message: 'Select a valid charging slot',
+  })
   slotNumber!: string;
-
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  userId!: number;
 }
+
+
+

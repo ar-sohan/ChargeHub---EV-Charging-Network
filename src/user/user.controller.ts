@@ -1,5 +1,10 @@
+import { ChargingService } from './charging.service';
+import { StationService } from './station.service';
+import { NotificationService } from './notification.service';
+import { NotificationAuthDto } from './dto/notification-auth.dto';
 import {
   Body,
+  ForbiddenException,
   Controller,
   Delete,
   Get,
@@ -9,6 +14,7 @@ import {
   Post,
   Put,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 
@@ -21,11 +27,47 @@ import { UpdatePasswordDto } from './dto/update-password.dto';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { UpdateBookingDto } from './dto/update-booking.dto';
 import { CreatePaymentDto } from './dto/create-payment.dto';
-import { UpdatePaymentDto } from './dto/update-payment.dto';
+
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 @Controller('user')
 export class UserController {
-  constructor(private readonly userService: UserService) {}
+  constructor(private readonly userService: UserService, private readonly notifications: NotificationService, private readonly charging: ChargingService, private readonly stationService: StationService) {}
+
+  @UseGuards(JwtAuthGuard)
+  @Get('charging')
+  chargingSessions(@Req() request: { user: { sub: number } }) {
+    return this.charging.list(request.user.sub);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('charging/:id/start')
+  startCharging(@Param('id', ParseIntPipe) id: number, @Req() request: { user: { sub: number } }) {
+    return this.charging.start(id, request.user.sub);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('charging/:id/stop')
+  stopCharging(@Param('id', ParseIntPipe) id: number, @Req() request: { user: { sub: number } }) {
+    return this.charging.stop(id, request.user.sub);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('notifications/auth')
+  notificationAuth(@Body() dto: NotificationAuthDto, @Req() req: { user: { sub: number } }) {
+    return this.notifications.authorize(req.user.sub, dto.socket_id, dto.channel_name);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('notifications')
+  notificationsList(@Req() req: { user: { sub: number } }) {
+    return this.notifications.list(req.user.sub);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('notifications/:id/read')
+  readNotification(@Param('id', ParseIntPipe) id: number, @Req() req: { user: { sub: number } }) {
+    return this.notifications.markRead(req.user.sub, id);
+  }
 
   // Route 1: Register User (Public)
   @Post('register')
@@ -39,37 +81,55 @@ export class UserController {
     return this.userService.login(dto);
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Get('me')
+  getMe(@Req() request: { user: { sub: number } }) {
+    return this.userService.getUser(request.user.sub);
+  }
+
   // Route 3: Search User (Protected)
   @UseGuards(JwtAuthGuard)
   @Get('search')
   search(@Query('name') name: string) {
-    return this.userService.search(name);
+    throw new ForbiddenException('User directory access is not allowed');
   }
 
   // Route 4: Get All Users (Protected)
   @UseGuards(JwtAuthGuard)
   @Get()
   getAllUsers() {
-    return this.userService.getAllUsers();
+    throw new ForbiddenException('User directory access is not allowed');
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('slots')
+  availableSlots(@Query('block') block?: string, @Query('road') road?: string, @Query('stationId') stationId?: string) {
+    return this.userService.availableSlots({ block, road, stationId });
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('stations')
+  stations() {
+    return this.stationService.list();
   }
 
   // User -> Booking (one-to-many) CRUD routes
   @UseGuards(JwtAuthGuard)
   @Post('bookings')
-  createBooking(@Body() dto: CreateBookingDto) {
-    return this.userService.createBooking(dto);
+  createBooking(@Body() dto: CreateBookingDto, @Req() request: { user: { sub: number } }) {
+    return this.userService.createBooking(dto, request.user.sub);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get('bookings')
-  findAllBookings() {
-    return this.userService.findAllBookings();
+  findAllBookings(@Req() request: { user: { sub: number } }) {
+    return this.userService.findAllBookings(request.user.sub);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get('bookings/:id')
-  findOneBooking(@Param('id', ParseIntPipe) id: number) {
-    return this.userService.findOneBooking(id);
+  findOneBooking(@Param('id', ParseIntPipe) id: number, @Req() request: { user: { sub: number } }) {
+    return this.userService.findOneBooking(id, request.user.sub);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -77,54 +137,45 @@ export class UserController {
   updateBooking(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateBookingDto,
+    @Req() request: { user: { sub: number } },
   ) {
-    return this.userService.updateBooking(id, dto);
+    return this.userService.updateBooking(id, dto, request.user.sub);
   }
 
   @UseGuards(JwtAuthGuard)
   @Delete('bookings/:id')
-  removeBooking(@Param('id', ParseIntPipe) id: number) {
-    return this.userService.removeBooking(id);
+  removeBooking(@Param('id', ParseIntPipe) id: number, @Req() request: { user: { sub: number } }) {
+    return this.userService.updateBooking(id, { status: 'cancelled' }, request.user.sub);
   }
 
-  // Booking -> Payment (one-to-one) CRUD routes
   @UseGuards(JwtAuthGuard)
-  @Post('payments')
-  createPayment(@Body() dto: CreatePaymentDto) {
-    return this.userService.createPayment(dto);
+  @Get('payments/quote/:bookingId')
+  paymentQuote(@Param('bookingId', ParseIntPipe) id: number, @Req() req: { user: { sub: number } }) {
+    return this.userService.paymentQuote(id, req.user.sub);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('payments/demo')
+  demoPayment(@Body() dto: CreatePaymentDto, @Req() req: { user: { sub: number } }) {
+    return this.userService.demoPayment(dto.bookingId, req.user.sub);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get('payments')
-  findAllPayments() {
-    return this.userService.findAllPayments();
+  findAllPayments(@Req() req: { user: { sub: number } }) {
+    return this.userService.findAllPayments(req.user.sub);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get('payments/:id')
-  findOnePayment(@Param('id', ParseIntPipe) id: number) {
-    return this.userService.findOnePayment(id);
+  findOnePayment(@Param('id', ParseIntPipe) id: number, @Req() req: { user: { sub: number } }) {
+    return this.userService.findOnePayment(id, req.user.sub);
   }
-
-  @UseGuards(JwtAuthGuard)
-  @Patch('payments/:id')
-  updatePayment(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() dto: UpdatePaymentDto,
-  ) {
-    return this.userService.updatePayment(id, dto);
-  }
-
-  @UseGuards(JwtAuthGuard)
-  @Delete('payments/:id')
-  removePayment(@Param('id', ParseIntPipe) id: number) {
-    return this.userService.removePayment(id);
-  }
-
   // Route 5: Get User By ID (Protected)
   @UseGuards(JwtAuthGuard)
   @Get(':id')
-  getUser(@Param('id', ParseIntPipe) id: number) {
+  getUser(@Param('id', ParseIntPipe) id: number, @Req() req: { user: { sub: number } }) {
+    if (req.user.sub !== id) throw new ForbiddenException('You can only view your own profile');
     return this.userService.getUser(id);
   }
 
@@ -134,7 +185,11 @@ export class UserController {
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateUserDto: UpdateUserDto,
+    @Req() request: { user: { sub: number } },
   ) {
+    if (request.user.sub !== id) {
+      throw new ForbiddenException('You can only edit your own profile');
+    }
     return this.userService.update(id, updateUserDto);
   }
 
@@ -145,7 +200,7 @@ export class UserController {
     @Param('id', ParseIntPipe) id: number,
     @Body() body: UpdateUserStatusDto,
   ) {
-    return this.userService.updateStatus(id, body);
+    throw new ForbiddenException('Users cannot change account status');
   }
 
   // Route 8: Update Password (Protected)
@@ -154,14 +209,28 @@ export class UserController {
   updatePassword(
     @Param('id', ParseIntPipe) id: number,
     @Body() body: UpdatePasswordDto,
+    @Req() req: { user: { sub: number } },
   ) {
+    if (req.user.sub !== id) throw new ForbiddenException('You can only change your own password');
     return this.userService.updatePassword(id, body);
   }
 
   // Route 9: Delete User (Protected)
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
-  remove(@Param('id', ParseIntPipe) id: number) {
+  remove(@Param('id', ParseIntPipe) id: number, @Req() req: { user: { sub: number } }) {
+    if (req.user.sub !== id) throw new ForbiddenException('You can only delete your own account');
     return this.userService.remove(id);
   }
 }
+
+
+
+
+
+
+
+
+
+
+

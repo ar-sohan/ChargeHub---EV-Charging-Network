@@ -27,17 +27,18 @@ Thank you.`,
     bookingId: number,
     slotNumber: string,
     amount: number,
+    demo = false,
   ) {
     await this.mailerService.sendMail({
       to: email,
-      subject: `Booking #${bookingId} confirmed - ChargeHub EV`,
+      subject: `${demo ? "[DEMO] " : ""}Booking #${bookingId} confirmed - ChargeHub EV`,
       text: `Hello ${name},
 
 Your ChargeHub EV booking has been confirmed.
 
 Booking ID: #${bookingId}
 Slot: ${slotNumber}
-Payment received: ${amount}
+${demo ? "Demo payment simulated (no money charged)" : "Payment received"}: BDT ${amount}
 
 Thank you for choosing ChargeHub EV.`,
     });
@@ -45,3 +46,4 @@ Thank you for choosing ChargeHub EV.`,
     return true;
   }
 }
+
