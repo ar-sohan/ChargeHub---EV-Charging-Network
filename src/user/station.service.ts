@@ -19,6 +19,7 @@ export class StationService implements OnModuleInit {
       await manager.save(StationSeedRun, { id: 'v1' });
     });
     await this.updateHouseNumbers();
+    await this.updateLocations();
   }
   async updateHouseNumbers() {
     await this.db.transaction(async manager => {
@@ -31,6 +32,16 @@ export class StationService implements OnModuleInit {
     });
   }
 
+  async updateLocations() {
+    await this.db.transaction(async manager => {
+      await manager.query("SELECT pg_advisory_xact_lock(hashtext($1))", ['chargehub-stations-v1']);
+      if (await manager.findOneBy(StationSeedRun, { id: 'dhaka-locations-v3' })) return;
+      for (const station of STATIONS) {
+        await manager.update(StationEntity, { id: station.id }, { name: station.name, area: station.area });
+      }
+      await manager.save(StationSeedRun, { id: 'dhaka-locations-v3' });
+    });
+  }
   list() {
     return this.db.getRepository(StationEntity).find({
       where: { active: true }, order: { block: 'ASC', road: 'ASC', name: 'ASC' },
@@ -53,4 +64,5 @@ export class StationService implements OnModuleInit {
     });
   }
 }
+
 

@@ -21,8 +21,8 @@ for (const block of ['A', 'B', 'C']) {
 
 export const STATIONS: Station[] = locations.map((location, index) => ({
   id: location.block.toLowerCase() + '-r' + location.road + '-s' + location.position,
-  name: 'Station ' + location.block + '-' + location.road + '-' + location.position,
-  area: 'Bashundhara Residential Area',
+  name: ({ A: 'Banani Garage', B: 'Dhanmondi Garage', C: 'Uttara Garage' }[location.block]) + ' ' + location.road + '-' + location.position,
+  area: ({ A: 'Banani, Dhaka', B: 'Dhanmondi, Dhaka', C: 'Uttara, Dhaka' }[location.block])!,
   block: location.block, road: location.road, house: String(100 + location.position),
   firstSlot: index * 10 + 1, lastSlot: (index + 1) * 10,
 })).sort((a, b) => a.block.localeCompare(b.block) || Number(a.road) - Number(b.road) || a.name.localeCompare(b.name));
@@ -43,4 +43,5 @@ export function locationSlots(occupied: Set<string>, filter: StationFilter = {})
       return { slotNumber, available: !occupied.has(slotNumber), station };
     }));
 }
+
 
