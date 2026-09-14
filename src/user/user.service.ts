@@ -274,9 +274,9 @@ export class UserService {
         status: saved.status, bookingTime: saved.bookingTime,
       };
     });
-    await this.notifications.publish(userId, created.id, 'Booking created',
-      'Your booking for slot ' + created.slotNumber + ' is awaiting payment.');
-    return created;
+    const notification = await this.notifications.publish(userId, created.id, 'Booking successful',
+      'Slot ' + created.slotNumber + ' reserved. Payment pending. Complete payment to confirm your booking.');
+    return { ...created, notification };
   }
   async findAllBookings(userId: number) {
     return this.bookingRepository.find({
@@ -342,17 +342,14 @@ export class UserService {
       payment.amount = this.demoAmount;
       payment.paymentMethod = 'demo';
       payment.status = 'paid';
-      payment.transactionId = 'DEMO-' + booking.id;
+      payment.transactionId = 'PAY-' + booking.id;
       payment.paidAt = new Date();
       await manager.save(payment);
       booking.status = 'confirmed';
       await manager.save(booking);
       return { payment, booking, repeated: false };
     });
-    if (!result.repeated) {
-      await this.notifications.publish(userId, bookingId, 'Booking confirmed',
-        'Payment processed. Your booking for slot ' + result.booking.slotNumber + ' is confirmed.');
-    }
+    const notification = !result.repeated ? await this.notifications.publish(userId, bookingId, 'Payment successful', 'Payment of BDT ' + this.demoAmount.toFixed(2) + ' received. Your booking for slot ' + result.booking.slotNumber + ' is confirmed.') : undefined;
     let emailStatus = result.repeated ? 'already_processed' : 'sent';
     if (!result.repeated) {
       try {
@@ -367,7 +364,7 @@ export class UserService {
           error instanceof Error ? error.stack : undefined);
       }
     }
-    return { ...result.payment, booking: result.booking, demo: true, currency: 'BDT', emailStatus };
+    return { ...result.payment, booking: result.booking, demo: true, currency: 'BDT', emailStatus, notification };
   }
 
   async findAllPayments(userId: number) {
@@ -387,6 +384,9 @@ export class UserService {
     return payment;
   }
 }
+
+
+
 
 
 

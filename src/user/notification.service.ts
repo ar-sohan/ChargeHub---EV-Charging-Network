@@ -50,10 +50,12 @@ export class NotificationService {
         user: { id: userId }, bookingId, title, message,
       }));
       const event = { id: saved.id, bookingId, title, message, read: saved.read, createdAt: saved.createdAt };
-      if (this.client) await this.client.trigger('private-user-' + userId, 'notification', event);
+      await this.deliver(userId, saved);
+      return event;
     } catch {
       this.logger.warn('Notification delivery failed; booking/payment remains saved');
     }
   }
 }
+
 

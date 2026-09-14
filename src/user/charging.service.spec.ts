@@ -48,7 +48,7 @@ describe('simulated charging', () => {
 
 describe('stop charging', () => {
   it('freezes percentage, releases booking and does not duplicate notifications', async () => {
-    const booking: any = { id: 3, slotNumber: 'A-3', status: 'confirmed', chargingStartedAt: new Date(Date.now() - 60000) };
+    const booking: any = { id: 3, slotNumber: 'A-3', status: 'confirmed', chargingStartedAt: new Date(Date.now() - CHARGING_DURATION_MS / 2) };
     const manager = {
       findOne: jest.fn().mockResolvedValue(booking),
       create: jest.fn((_entity, data) => data),
@@ -70,3 +70,4 @@ describe('stop charging', () => {
     await expect(service.stop(1, 9)).rejects.toThrow('Charging has not started');
   });
 });
+
