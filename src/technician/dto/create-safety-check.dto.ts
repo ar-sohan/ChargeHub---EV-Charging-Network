@@ -1,10 +1,15 @@
-import { IsDateString, IsNotEmpty, IsString, MaxLength } from 'class-validator';
+import { IsDateString, IsOptional, IsNotEmpty, IsString, MaxLength } from 'class-validator';
 
 export class CreateSafetyCheckDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(100)
   stationId: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  stationLocation?: string;
 
   @IsString()
   @IsNotEmpty()

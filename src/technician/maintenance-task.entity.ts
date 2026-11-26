@@ -18,6 +18,9 @@ export class MaintenanceTask {
   @Column({ length: 100 })
   stationId: string;
 
+  @Column({ length: 200, nullable: true })
+  stationLocation?: string;
+
   @Column({ length: 100, nullable: true })
   deviceId?: string;
 

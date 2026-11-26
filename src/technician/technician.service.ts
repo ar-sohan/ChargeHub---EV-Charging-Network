@@ -3,7 +3,15 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import * as bcrypt from 'bcrypt';
+import {
+  LoginTechnicianDto,
+  UpdateApprovalDto,
+  UpdateTechnicianProfileDto,
+} from './dto/technician-auth.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, Repository } from 'typeorm';
 import { CreateFaultReportDto, UpdateFaultStatusDto } from './dto/create-fault-report.dto';
@@ -30,6 +38,7 @@ export class TechnicianService {
     private readonly faultReportRepository: Repository<FaultReport>,
     @InjectRepository(Specialisation)
     private readonly specialisationRepository: Repository<Specialisation>,
+    private readonly jwt: JwtService,
   ) {}
 
   async createProfile(dto: CreateTechnicianDto): Promise<Technician> {
@@ -46,11 +55,88 @@ export class TechnicianService {
     );
     const technician = this.technicianRepository.create({
       ...dto,
+      password: await bcrypt.hash(dto.password, await bcrypt.genSalt()),
       country: dto.country ?? 'Unknown',
       approvalStatus: 'Pending',
       specialisations,
     });
+    const saved = await this.technicianRepository.save(technician);
+    delete saved.password;
+    return saved;
+  }
+
+  async login(dto: LoginTechnicianDto) {
+    const technician = await this.technicianRepository
+      .createQueryBuilder('t')
+      .addSelect('t.password')
+      .where('t.email = :email', { email: dto.email })
+      .getOne();
+    const ok = technician?.password && (await bcrypt.compare(dto.password, technician.password));
+    if (!technician || !ok) throw new UnauthorizedException('Invalid email or password');
+    if (technician.approvalStatus === 'Rejected') {
+      throw new ForbiddenException('This technician account was rejected');
+    }
+    const accessToken = await this.jwt.signAsync({
+      sub: technician.id,
+      email: technician.email,
+      role: 'technician',
+    });
+    delete technician.password;
+    return { accessToken, technician };
+  }
+
+  findAll(): Promise<Technician[]> {
+    return this.technicianRepository.find({
+      relations: { specialisations: true },
+      order: { joiningDate: 'DESC' },
+    });
+  }
+
+  async updateApproval(id: number, dto: UpdateApprovalDto): Promise<Technician> {
+    const technician = await this.findTechnician(id);
+    technician.approvalStatus = dto.approvalStatus;
     return this.technicianRepository.save(technician);
+  }
+
+  async updateProfile(id: number, dto: UpdateTechnicianProfileDto): Promise<Technician> {
+    const technician = await this.findTechnician(id);
+    Object.assign(technician, dto);
+    await this.technicianRepository.save(technician);
+    return this.getProfile(id);
+  }
+
+  async getMaintenanceById(id: number): Promise<MaintenanceTask> {
+    const task = await this.maintenanceRepository.findOne({ where: { id }, relations: { technician: true } });
+    if (!task) throw new NotFoundException(`Maintenance task with ID ${id} not found`);
+    return task;
+  }
+
+  async getFaultById(id: number): Promise<FaultReport> {
+    const fault = await this.faultReportRepository.findOne({ where: { id }, relations: { technician: true } });
+    if (!fault) throw new NotFoundException(`Fault report with ID ${id} not found`);
+    return fault;
+  }
+
+  async searchByStation(stationId: string) {
+    const where = { stationId };
+    const relations = { technician: true };
+    const [faultReports, safetyChecks, maintenanceTasks] = await Promise.all([
+      this.faultReportRepository.find({ where, relations, order: { reportedAt: 'DESC' } }),
+      this.safetyCheckRepository.find({ where, relations, order: { checkedAt: 'DESC' } }),
+      this.maintenanceRepository.find({ where, relations, order: { createdAt: 'DESC' } }),
+    ]);
+    return { stationId, faultReports, safetyChecks, maintenanceTasks };
+  }
+
+  /** Throws unless the maintenance task / fault belongs to the given technician. */
+  async assertOwnsMaintenance(taskId: number, technicianId: number) {
+    const task = await this.getMaintenanceById(taskId);
+    if (task.technician?.id !== technicianId) throw new ForbiddenException('Not your maintenance task');
+  }
+
+  async assertOwnsFault(faultId: number, technicianId: number) {
+    const fault = await this.getFaultById(faultId);
+    if (fault.technician?.id !== technicianId) throw new ForbiddenException('Not your fault report');
   }
 
   async getProfile(id: number): Promise<Technician> {

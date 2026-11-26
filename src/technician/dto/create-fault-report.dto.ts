@@ -6,6 +6,11 @@ export class CreateFaultReportDto {
   @MaxLength(100)
   stationId: string;
 
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  stationLocation?: string;
+
   @IsString()
   @IsNotEmpty()
   @MaxLength(100)

@@ -11,6 +11,11 @@ export class CreateMaintenanceTaskDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(200)
+  stationLocation?: string;
+
+  @IsOptional()
+  @IsString()
   @MaxLength(100)
   deviceId?: string;
 

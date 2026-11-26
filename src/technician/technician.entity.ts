@@ -28,6 +28,10 @@ export class Technician {
   @Column({ length: 100, unique: true })
   email: string;
 
+  // bcrypt hash; never returned by normal queries.
+  @Column({ nullable: true, select: false })
+  password?: string;
+
   @Column({ length: 20 })
   phone: string;
 

@@ -7,6 +7,8 @@ import { Specialisation } from './specialisation.entity';
 import { TechnicianController } from './technician.controller';
 import { Technician } from './technician.entity';
 import { TechnicianService } from './technician.service';
+import { TechnicianAuthGuard } from './guards/technician-auth.guard';
+import { JwtAuthGuard as AdminAuthGuard } from '../admin/guards/jwt-auth.guard';
 
 @Module({
   imports: [
@@ -19,6 +21,6 @@ import { TechnicianService } from './technician.service';
     ]),
   ],
   controllers: [TechnicianController],
-  providers: [TechnicianService],
+  providers: [TechnicianService, TechnicianAuthGuard, AdminAuthGuard],
 })
 export class TechnicianModule {}

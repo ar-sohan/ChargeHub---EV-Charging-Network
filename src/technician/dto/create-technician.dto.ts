@@ -9,6 +9,7 @@ import {
   Matches,
   MaxLength,
   Min,
+  MinLength,
 } from 'class-validator';
 
 export class CreateTechnicianDto {
@@ -19,6 +20,10 @@ export class CreateTechnicianDto {
 
   @IsEmail()
   email: string;
+
+  @IsString()
+  @MinLength(6)
+  password: string;
 
   @IsString()
   @IsNotEmpty()

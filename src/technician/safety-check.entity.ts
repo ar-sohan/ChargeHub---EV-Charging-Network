@@ -9,6 +9,9 @@ export class SafetyCheck {
   @Column({ length: 100 })
   stationId: string;
 
+  @Column({ length: 200, nullable: true })
+  stationLocation?: string;
+
   @Column({ length: 100 })
   checkType: string;
 
