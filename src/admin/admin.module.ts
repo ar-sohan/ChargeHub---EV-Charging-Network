@@ -1,17 +1,18 @@
 import { Module } from '@nestjs/common';
-import { JwtModule } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { AdminController } from './admin.controller';
 import { AdminEntity } from './admin.entity';
-import { AdminService } from './admin.service';
 import { Dispute } from './dispute.entity';
-import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { ManagedUser } from './managed-user.entity';
 import { Resolution } from './resolution.entity';
+import { ManagedUser } from './managed-user.entity';
+import { AdminController } from './admin.controller';
+import { AdminService } from './admin.service';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
+// JwtModule and MailerModule are set up once in AppModule.
 @Module({
-  imports: [TypeOrmModule.forFeature([AdminEntity, ManagedUser, Dispute, Resolution]), JwtModule.register({ secret: process.env.JWT_SECRET || 'chargehub-secret', signOptions: { expiresIn: (process.env.JWT_EXPIRES_IN || '1d') as any } })],
+  imports: [TypeOrmModule.forFeature([AdminEntity, Dispute, Resolution, ManagedUser])],
   controllers: [AdminController],
   providers: [AdminService, JwtAuthGuard],
+  exports: [JwtAuthGuard],
 })
 export class AdminModule {}

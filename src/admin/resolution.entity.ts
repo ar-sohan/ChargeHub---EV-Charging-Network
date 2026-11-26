@@ -1,9 +1,17 @@
-import { Column, Entity, OneToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, OneToOne } from 'typeorm';
 import { Dispute } from './dispute.entity';
-@Entity('resolutions')
+
+@Entity('resolution')
 export class Resolution {
-  @PrimaryGeneratedColumn() id: number;
-  @Column() decision: string;
-  @Column({ nullable: true }) note?: string;
-  @OneToOne(() => Dispute, (dispute) => dispute.resolution) dispute: Dispute;
+  @PrimaryGeneratedColumn()
+  id: number;
+
+  @Column()
+  decision: string;
+
+  @Column({ nullable: true })
+  note: string;
+
+  @OneToOne(() => Dispute, (dispute) => dispute.resolution)
+  dispute: Dispute;
 }

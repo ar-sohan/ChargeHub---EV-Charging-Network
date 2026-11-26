@@ -1,11 +1,27 @@
-import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
 import { AdminEntity } from './admin.entity';
-@Entity('managed_users')
+
+// A platform user that the admin oversees (host / driver / technician).
+@Entity('managed_user')
 export class ManagedUser {
-  @PrimaryGeneratedColumn() id: number;
-  @Column() name: string;
-  @Column({ unique: true }) email: string;
-  @Column() role: string;
-  @Column({ default: 'active' }) status: string;
-  @ManyToOne(() => AdminEntity, (admin) => admin.managedUsers, { onDelete: 'CASCADE' }) admin: AdminEntity;
+  @PrimaryGeneratedColumn()
+  id: number;
+
+  @Column()
+  name: string;
+
+  @Column()
+  email: string;
+
+  @Column()
+  role: string; // 'host' | 'driver' | 'technician'
+
+  @Column({ default: 'active' })
+  status: string; // 'active' | 'suspended'
+
+  @Column({ default: false })
+  isApproved: boolean;
+
+  @ManyToOne(() => AdminEntity, (admin) => admin.managedUsers) // many users -> one admin
+  admin: AdminEntity;
 }

@@ -1,89 +1,219 @@
 import {
-  Controller,
-  Get,
-  Post,
-  Patch,
   Body,
+  Controller,
+  Delete,
+  ForbiddenException,
+  Get,
   Param,
+  ParseIntPipe,
+  Patch,
+  Post,
   Query,
+  Req,
+  UseGuards,
 } from '@nestjs/common';
-import { TechnicianService } from './technician.service';
-import { CreateChargingMaintenanceDto } from './dto/create-charging-maintenance.dto';
-import { CreateHardwareMaintenanceDto } from './dto/create-hardware-maintenance.dto';
+import { JwtAuthGuard as AdminAuthGuard } from '../admin/guards/jwt-auth.guard';
+import { CreateFaultReportDto, UpdateFaultStatusDto } from './dto/create-fault-report.dto';
+import { CreateMaintenanceTaskDto, UpdateMaintenanceTaskDto } from './dto/create-maintenance-task.dto';
 import { CreateSafetyCheckDto } from './dto/create-safety-check.dto';
+import { CreateTechnicianDto } from './dto/create-technician.dto';
 import {
-  CreateFaultReportDto,
-  UpdateFaultStatusDto,
-} from './dto/create-fault-report.dto';
+  LoginTechnicianDto,
+  UpdateApprovalDto,
+  UpdateTechnicianProfileDto,
+} from './dto/technician-auth.dto';
+import { UpdateCountryDto } from './dto/update-country.dto';
+import { TechnicianAuthGuard } from './guards/technician-auth.guard';
+import type { TechnicianTokenPayload } from './guards/technician-auth.guard';
+import { TechnicianService } from './technician.service';
 
+type AuthedRequest = { user: TechnicianTokenPayload };
+
+function assertSelf(req: AuthedRequest, technicianId: number) {
+  if (req.user.sub !== technicianId) {
+    throw new ForbiddenException('You can only change your own records');
+  }
+}
+
+// Static routes (register, login, me, search, maintenance/:id, faults/:id ...)
+// are declared before ':id' so the numeric id route does not swallow them.
 @Controller('technician')
 export class TechnicianController {
   constructor(private readonly technicianService: TechnicianService) {}
 
-  // ── Route 1: POST /technician/charging-maintenance ──────────────────────────
-  // Feature: Charging System Maintenance — log a new maintenance task
-  // Demonstrates: @Body()
-  @Post('charging-maintenance')
-  logChargingMaintenance(@Body() dto: CreateChargingMaintenanceDto) {
-    return this.technicianService.logChargingMaintenance(dto);
+  // ---- Auth ----
+  @Post('register')
+  register(@Body() dto: CreateTechnicianDto) {
+    return this.technicianService.createProfile(dto);
   }
 
-  // ── Route 2: GET /technician/charging-maintenance ───────────────────────────
-  // Feature: Charging System Maintenance — view all records, filter by stationId
-  // Demonstrates: @Query()
-  @Get('charging-maintenance')
-  getAllChargingMaintenance(@Query('stationId') stationId?: string) {
-    return this.technicianService.getAllChargingMaintenance(stationId);
+  @Post('login')
+  login(@Body() dto: LoginTechnicianDto) {
+    return this.technicianService.login(dto);
   }
 
-  // ── Route 3: POST /technician/hardware-maintenance ──────────────────────────
-  // Feature: Hardware Maintenance — log a hardware maintenance task
-  // Demonstrates: @Body()
-  @Post('hardware-maintenance')
-  logHardwareMaintenance(@Body() dto: CreateHardwareMaintenanceDto) {
-    return this.technicianService.logHardwareMaintenance(dto);
+  @Get('me')
+  @UseGuards(TechnicianAuthGuard)
+  me(@Req() req: AuthedRequest) {
+    return this.technicianService.getProfile(req.user.sub);
   }
 
-  // ── Route 4: GET /technician/system-monitoring ──────────────────────────────
-  // Feature: System Monitoring — get live status of all or one station
-  // Demonstrates: @Query()
-  @Get('system-monitoring')
-  getSystemMonitoring(@Query('stationId') stationId?: string) {
-    return this.technicianService.getSystemMonitoring(stationId);
+  // ---- Admin only ----
+  @Get()
+  @UseGuards(AdminAuthGuard)
+  findAll() {
+    return this.technicianService.findAll();
   }
 
-  // ── Route 5: POST /technician/safety-checks ─────────────────────────────────
-  // Feature: Safety Checks — record a new safety check
-  // Demonstrates: @Body()
-  @Post('safety-checks')
-  createSafetyCheck(@Body() dto: CreateSafetyCheckDto) {
-    return this.technicianService.createSafetyCheck(dto);
+  @Patch(':id/approval')
+  @UseGuards(AdminAuthGuard)
+  updateApproval(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateApprovalDto) {
+    return this.technicianService.updateApproval(id, dto);
   }
 
-  // ── Route 6: GET /technician/safety-checks/:id ──────────────────────────────
-  // Feature: Safety Checks — get a specific safety check by ID
-  // Demonstrates: @Param()
+  // ---- Reads (any signed-in technician) ----
+  @Get('search/:stationId')
+  @UseGuards(TechnicianAuthGuard)
+  searchByStation(@Param('stationId') stationId: string) {
+    return this.technicianService.searchByStation(stationId);
+  }
+
+  @Get('by-date/search')
+  @UseGuards(TechnicianAuthGuard)
+  findByJoiningDate(@Query('joiningDate') joiningDate: string) {
+    return this.technicianService.findByJoiningDate(joiningDate);
+  }
+
+  @Get('country/unknown')
+  @UseGuards(TechnicianAuthGuard)
+  findUnknownCountry() {
+    return this.technicianService.findUnknownCountry();
+  }
+
+  @Get('maintenance/:id')
+  @UseGuards(TechnicianAuthGuard)
+  getMaintenanceById(@Param('id', ParseIntPipe) id: number) {
+    return this.technicianService.getMaintenanceById(id);
+  }
+
+  @Get('faults/:id')
+  @UseGuards(TechnicianAuthGuard)
+  getFaultById(@Param('id', ParseIntPipe) id: number) {
+    return this.technicianService.getFaultById(id);
+  }
+
   @Get('safety-checks/:id')
-  getSafetyCheckById(@Param('id') id: string) {
-    return this.technicianService.getSafetyCheckById(Number(id));
+  @UseGuards(TechnicianAuthGuard)
+  getSafetyCheckById(@Param('id', ParseIntPipe) id: number) {
+    return this.technicianService.getSafetyCheckById(id);
   }
 
-  // ── Route 7: POST /technician/faults ────────────────────────────────────────
-  // Feature: Fault Handling — report a new fault
-  // Demonstrates: @Body()
-  @Post('faults')
-  reportFault(@Body() dto: CreateFaultReportDto) {
-    return this.technicianService.reportFault(dto);
+  @Get(':id')
+  @UseGuards(TechnicianAuthGuard)
+  getProfile(@Param('id', ParseIntPipe) id: number) {
+    return this.technicianService.getProfile(id);
   }
 
-  // ── Route 8: PATCH /technician/faults/:id ───────────────────────────────────
-  // Feature: Fault Handling — update fault status (e.g. mark as Resolved)
-  // Demonstrates: @Param() + @Body()
+  @Get(':technicianId/maintenance')
+  @UseGuards(TechnicianAuthGuard)
+  getMaintenanceTasks(@Param('technicianId', ParseIntPipe) technicianId: number) {
+    return this.technicianService.getMaintenanceTasks(technicianId);
+  }
+
+  // ---- Writes (only on your own records) ----
+  @Patch(':id/country')
+  @UseGuards(TechnicianAuthGuard)
+  updateCountry(
+    @Req() req: AuthedRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateCountryDto,
+  ) {
+    assertSelf(req, id);
+    return this.technicianService.updateCountry(id, dto);
+  }
+
+  @Patch(':id/profile')
+  @UseGuards(TechnicianAuthGuard)
+  updateProfile(
+    @Req() req: AuthedRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateTechnicianProfileDto,
+  ) {
+    assertSelf(req, id);
+    return this.technicianService.updateProfile(id, dto);
+  }
+
+  @Post(':technicianId/maintenance')
+  @UseGuards(TechnicianAuthGuard)
+  createMaintenanceTask(
+    @Req() req: AuthedRequest,
+    @Param('technicianId', ParseIntPipe) technicianId: number,
+    @Body() dto: CreateMaintenanceTaskDto,
+  ) {
+    assertSelf(req, technicianId);
+    return this.technicianService.createMaintenanceTask(technicianId, dto);
+  }
+
+  @Patch('maintenance/:id')
+  @UseGuards(TechnicianAuthGuard)
+  async updateMaintenanceTask(
+    @Req() req: AuthedRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateMaintenanceTaskDto,
+  ) {
+    await this.technicianService.assertOwnsMaintenance(id, req.user.sub);
+    return this.technicianService.updateMaintenanceTask(id, dto);
+  }
+
+  @Delete('maintenance/:id')
+  @UseGuards(TechnicianAuthGuard)
+  async removeMaintenanceTask(@Req() req: AuthedRequest, @Param('id', ParseIntPipe) id: number) {
+    await this.technicianService.assertOwnsMaintenance(id, req.user.sub);
+    return this.technicianService.removeMaintenanceTask(id);
+  }
+
+  // Adds a many-to-many technician <-> specialisation relation.
+  @Post(':technicianId/specialisations/:name')
+  @UseGuards(TechnicianAuthGuard)
+  addSpecialisation(
+    @Req() req: AuthedRequest,
+    @Param('technicianId', ParseIntPipe) technicianId: number,
+    @Param('name') name: string,
+  ) {
+    assertSelf(req, technicianId);
+    return this.technicianService.addSpecialisation(technicianId, name);
+  }
+
+  @Post(':technicianId/safety-checks')
+  @UseGuards(TechnicianAuthGuard)
+  createSafetyCheck(
+    @Req() req: AuthedRequest,
+    @Param('technicianId', ParseIntPipe) technicianId: number,
+    @Body() dto: CreateSafetyCheckDto,
+  ) {
+    assertSelf(req, technicianId);
+    return this.technicianService.createSafetyCheck(technicianId, dto);
+  }
+
+  @Post(':technicianId/faults')
+  @UseGuards(TechnicianAuthGuard)
+  reportFault(
+    @Req() req: AuthedRequest,
+    @Param('technicianId', ParseIntPipe) technicianId: number,
+    @Body() dto: CreateFaultReportDto,
+  ) {
+    assertSelf(req, technicianId);
+    return this.technicianService.reportFault(technicianId, dto);
+  }
+
   @Patch('faults/:id')
-  updateFaultStatus(
-    @Param('id') id: string,
+  @UseGuards(TechnicianAuthGuard)
+  async updateFaultStatus(
+    @Req() req: AuthedRequest,
+    @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateFaultStatusDto,
   ) {
-    return this.technicianService.updateFaultStatus(Number(id), dto);
+    await this.technicianService.assertOwnsFault(id, req.user.sub);
+    return this.technicianService.updateFaultStatus(id, dto);
   }
 }

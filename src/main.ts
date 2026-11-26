@@ -11,7 +11,13 @@ async function bootstrap() {
       transform: true,
     }),
   );
-  app.enableCors();
-  await app.listen(3000);
+  // CORS_ORIGIN is a comma-separated list of allowed frontend URLs, for example
+  // "http://localhost:5123,https://chargehub.vercel.app". Unset means allow all.
+  const origins = process.env.CORS_ORIGIN?.split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
+  app.enableCors({ origin: origins?.length ? origins : true });
+  // Hosts such as Render pass the port to listen on in PORT.
+  await app.listen(Number(process.env.PORT) || 3000);
 }
 void bootstrap();

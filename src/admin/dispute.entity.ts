@@ -1,12 +1,28 @@
-import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToOne, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToOne, JoinColumn, CreateDateColumn,
+} from 'typeorm';
 import { AdminEntity } from './admin.entity';
 import { Resolution } from './resolution.entity';
-@Entity('disputes')
+
+@Entity('dispute')
 export class Dispute {
-  @PrimaryGeneratedColumn() id: number;
-  @Column() subject: string;
-  @Column({ default: 'OPEN' }) status: string;
-  @CreateDateColumn() createdAt: Date;
-  @ManyToOne(() => AdminEntity, (admin) => admin.disputes, { onDelete: 'CASCADE' }) admin: AdminEntity;
-  @OneToOne(() => Resolution, (resolution) => resolution.dispute, { cascade: true, nullable: true }) @JoinColumn() resolution: Resolution | null;
+  @PrimaryGeneratedColumn()
+  id: number;
+
+  @Column()
+  subject: string;
+
+  @Column({ default: 'OPEN' })
+  status: string;
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @ManyToOne(() => AdminEntity, (admin) => admin.disputes)
+  admin: AdminEntity;
+
+  @OneToOne(() => Resolution, (resolution) => resolution.dispute, { cascade: true, nullable: true })
+
+  @JoinColumn()
+  resolution: Resolution;
 }

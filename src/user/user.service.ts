@@ -107,7 +107,12 @@ export class UserService {
 
     await this.userRepository.save(user);
 
-    await this.mailService.sendWelcomeEmail(user.email, user.fullName);
+    // The account is already saved; a mail outage should not turn sign-up into a 500.
+    try {
+      await this.mailService.sendWelcomeEmail(user.email, user.fullName);
+    } catch (e) {
+      console.error('Welcome email failed:', (e as Error).message);
+    }
 
     return {
       message: 'User registered successfully',

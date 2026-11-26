@@ -1,13 +1,44 @@
-import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryColumn,
+  Column,
+  BeforeInsert,
+  OneToMany,
+} from 'typeorm';
 import { Dispute } from './dispute.entity';
 import { ManagedUser } from './managed-user.entity';
-@Entity('admins')
+
+@Entity('admin')
 export class AdminEntity {
-  @PrimaryGeneratedColumn() id: number;
-  @Column({ length: 100 }) fullName: string;
-  @Column({ unique: true }) email: string;
-  @Column({ select: false }) password: string;
-  @Column({ default: true }) isActive: boolean;
-  @OneToMany(() => ManagedUser, (user) => user.admin) managedUsers: ManagedUser[];
-  @OneToMany(() => Dispute, (dispute) => dispute.admin) disputes: Dispute[];
+  @PrimaryColumn()
+  id: number;
+
+  @BeforeInsert()
+  generateId() {
+    this.id = Math.floor(Math.random() * 1_000_000_000);
+  }
+
+  @Column({ nullable: true })
+  fullName: string;
+
+  @Column({ unique: true })
+  email: string;
+
+  @Column({ select: false })
+  password: string; // stored as a bcrypt hash
+
+  @Column()
+  gender: string;
+
+  @Column({ type: 'bigint', nullable: true })
+  phone: string;
+
+  @Column({ default: true })
+  isActive: boolean;
+
+  @OneToMany(() => Dispute, (dispute) => dispute.admin)
+  disputes: Dispute[];
+
+  @OneToMany(() => ManagedUser, (user) => user.admin)
+  managedUsers: ManagedUser[];
 }
